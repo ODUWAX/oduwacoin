@@ -1,32 +1,12 @@
+Oduwacoin:2.0.0/IVIE
+=====================================
 
-OduwaCoin development tree
+Oduwacoin, the first indigenous Pure-PoS Cryptocurrency designed to empower people of African descent.
 
-OduwaCoin is a PoS-based cryptocurrency.
+After three years of network operations, the developers of OduwaCoin have come up with an improvement for on-chain executions for its fungible currency.
 
-Development process
-===========================
+The blockchain upgrade is an optimization to the existing Altcoin source code and bitcoin core protocol backbone . Ivie will enable network improvement, staking algorithm, removal of bugs, optimized wallet, wallet user interface enhancements, HD wallet upgrade, fake stake vulnerability fix, greater stability, and much more within the Oduwa network, powered by its native cryptocurrency known as OduwaCoin.
 
-Developers work in their own trees, then submit pull requests when
-they think their feature or bug fix is ready.
+Oduwa Core network contributors find it very important to keep its competitive culture alive as a non-correlative asset. This upgraded version will highlight a critical step in the journey to deliver blockchain applications that directly connect to real people, particularly those informed by the members’ community.
 
-The patch will be accepted if there is broad consensus that it is a
-good thing.  Developers should expect to rework and resubmit patches
-if they don't match the project's coding conventions (see coding.txt)
-or are controversial.
-
-The master branch is regularly built and tested, but is not guaranteed
-to be completely stable. Tags are regularly created to indicate new
-stable release versions of OduwaCoin.
-
-Feature branches are created when there are major new features being
-worked on by several people.
-
-From time to time a pull request will become outdated. If this occurs, and
-the pull is no longer automatically mergeable; a comment on the pull will
-be used to issue a warning of closure. The pull will be closed 15 days
-after the warning if action is not taken by the author. Pull requests closed
-in this manner will have their corresponding issue labeled 'stagnant'.
-
-Issues with no commits will be given a similar warning, and closed after
-15 days from their last activity. Issues closed in this manner will be 
-labeled 'stale'.
+Stakers and node operators will need to update their clients to the latest Daemon Version. However, holders of OWC in their wallets or exchange do not need to do anything for this upgrade.

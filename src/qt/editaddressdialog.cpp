@@ -1,5 +1,10 @@
+// Copyright (c) 2011-2014 The Bitcoin Core developers
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
 #include "editaddressdialog.h"
 #include "ui_editaddressdialog.h"
+
 #include "addresstablemodel.h"
 #include "guiutil.h"
 
@@ -8,7 +13,10 @@
 
 EditAddressDialog::EditAddressDialog(Mode mode, QWidget *parent) :
     QDialog(parent),
-    ui(new Ui::EditAddressDialog), mapper(0), mode(mode), model(0)
+    ui(new Ui::EditAddressDialog),
+    mapper(0),
+    mode(mode),
+    model(0)
 {
     ui->setupUi(this);
 
@@ -99,7 +107,7 @@ void EditAddressDialog::accept()
             break;
         case AddressTableModel::INVALID_ADDRESS:
             QMessageBox::warning(this, windowTitle(),
-                tr("The entered address \"%1\" is not a valid OduwaCoin address.").arg(ui->addressEdit->text()),
+                tr("The entered address \"%1\" is not a valid Bitcoin address.").arg(ui->addressEdit->text()),
                 QMessageBox::Ok, QMessageBox::Ok);
             break;
         case AddressTableModel::DUPLICATE_ADDRESS:
