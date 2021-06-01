@@ -2460,14 +2460,6 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 	uint256 hashPrevBlock = pindex->pprev == NULL ? uint256() : pindex->pprev->GetBlockHash();
 	assert(hashPrevBlock == view.GetBestBlock());
 
-	// Special case for the genesis block, skipping connection of its transactions
-	// (its coinbase is unspendable)
-	//if (block.GetHash() == chainparams.GetConsensus().hashGenesisBlock) {
-	//	if (!fJustCheck)
-	//		view.SetBestBlock(pindex->GetBlockHash());
-	//	return true;
-	//}
-
 	// Set proof-of-stake hash modifier
 	uint64_t nStakeModifier = 0;
 	bool fGeneratedStakeModifier = false;
@@ -3765,13 +3757,6 @@ bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& sta
 	if (block.GetBlockTime() <= pindexPrev->GetPastTimeLimit())
 		return state.Invalid(error("%s: block's timestamp is too early", __func__),
 			REJECT_INVALID, "time-too-old");
-	/*
-	// Reject outdated version blocks when 95% (75% on testnet) of the network has upgraded:
-	for (int32_t version = 2; version < 5; ++version) // check for version 2, 3 and 4 upgrades
-		if (block.nVersion < version && IsSuperMajority(version, pindexPrev, consensusParams.nMajorityRejectBlockOutdated, consensusParams))
-			return state.Invalid(false, REJECT_OBSOLETE, strprintf("bad-version(0x%08x)", version - 1),
-								 strprintf("rejected nVersion=0x%08x block", version - 1));
-	*/
 
 	return true;
 }

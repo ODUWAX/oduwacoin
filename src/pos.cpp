@@ -351,6 +351,9 @@ bool CheckStakeKernelHash(CBlockIndex* pindexPrev, unsigned int nBits, const CCo
 	// Calculate hash
 	CDataStream ss(SER_GETHASH, 0);
 	CBlockIndex* blockFrom = chainActive[txPrev->nHeight];
+	if (blockFrom == NULL) {
+		return error("CheckStakeKernelHash() : blockFrom not found");
+	}
 	uint256 hashBlockFrom = blockFrom->GetBlockHash();
 	uint64_t nStakeModifier = 0;
 	int nStakeModifierHeight = 0;
