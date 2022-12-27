@@ -24,26 +24,14 @@ Stakers and node operators will need to update their clients to the latest Daemo
 1⁄1000000	Oduwacoins µOWC  
 1⁄100000000	Oduwashi- Oduwacoins  
 
-## Development
-**Original author(s)**:	Bright Enabulele  
-**White paper**:	https://indd.adobe.com/view/450c91d0-93ce-4e67-8883-78fc61ae290e  
-**Initial release**:	January 4, 2018  
-**Latest release**:	v2.0.0.1-IVIE / JUNE 1, 2021  
-**Code repository**:	https://github.com/ODUWAX/oduwacoin  
-**Development status**:	Active  
-**Source model**:	open-source software  
-**License**:	MIT License  
 
 ## Ledger
 **Timestamping scheme**: Proof-of-stake
-**Hash function**:  Scrypt
-**Block reward**:	 20
-**Block time**:	 120 seconds
-**Circulating supply**:	OWC 15.18 million
+**Hash function**: Scrypt
+**Block reward**:	20
+**Block time**:	120 seconds
+**Circulating supply**:	OWC 15.17 million
 **Supply limit**:	21 million
 
-## Valuation
-**Exchange rate**:	Floating
-
-## Demographics
-**Official user(s)**:	Pan-African
+## Explorer
+see explorer [Block Explorer](https://oduwaexplorer.com) for live transactions. The block explorer provides an API allowing users and/or applications to retrieve information from the network without the need for a local wallet.
