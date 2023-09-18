@@ -63,7 +63,7 @@
 
 
 namespace {
-    const int MAX_OUTBOUND_CONNECTIONS = 8;
+    const int MAX_OUTBOUND_CONNECTIONS = 16;
     const int MAX_FEELER_CONNECTIONS = 1;
 
     struct ListenSocket {

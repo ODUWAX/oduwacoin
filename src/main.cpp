@@ -572,8 +572,6 @@ namespace {
 		}
 	}
 
-
-
 	/** Update tracking information about which blocks a peer is assumed to have. */
 	void UpdateBlockAvailability(NodeId nodeid, const uint256 &hash) {
 		CNodeState *state = State(nodeid);
@@ -2082,7 +2080,6 @@ namespace Consensus {
 						error("CheckInputs(): tried to spend %s at depth %d", coins->IsCoinBase() ? "coinbase" : "coinstake", nSpendHeight - coins->nHeight),
 						REJECT_INVALID, "bad-txns-premature-spend-of-coinbase");
 			}
-
 
 			// Check transaction timestamp
 			if (coins->nTime > tx.nTime)
