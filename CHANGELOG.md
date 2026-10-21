@@ -1,4 +1,24 @@
 # Changelog
+
+## v2.0.0.2 / EDOSA (2023-09-18)
+
+- Added the `getstakereport` RPC command for staking reports across multiple time ranges.
+- Increased maximum outbound connections to improve network connectivity and resilience.
+- Upgraded secp256k1 for cryptographic performance and security maintenance.
+- Updated UniValue and LevelDB components.
+- Updated Qt and other build/runtime dependencies.
+- Published v2.0.0.2 release assets for supported desktop and daemon platforms.
+
+## v2.0.0.1 / IVIE (2021-06-01)
+
+- Added configurable `stakesplitthreshold` support.
+- Fixed a Qt wallet crash associated with a memory leak.
+- Added additional verbosity to the `getblock` RPC command.
+
+## Historical core lineage
+
+The entries below are retained from the earlier project changelog.
+
 ## v2.13.2.8 (2021-02-24)
 - Immediately ban clients operating on forked chains older than nMaxReorganizationDepth
 - Fixed IsDust() policy to allow atomic swaps
