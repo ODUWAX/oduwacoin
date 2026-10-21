@@ -43,6 +43,8 @@ jobs:
             bsdmainutils \
             libssl-dev \
             libevent-dev \
+            libdb-dev \
+            libdb++-dev \
             libboost-system-dev \
             libboost-filesystem-dev \
             libboost-chrono-dev \
