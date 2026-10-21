@@ -2,12 +2,13 @@
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include "arith_uint256.h"
 #include "chain.h"
 #include "chainparams.h"
 #include "pow.h"
 #include "random.h"
-#include "util.h"
 #include "test/test_bitcoin.h"
+#include "util.h"
 
 #include <boost/test/unit_test.hpp>
 
@@ -15,60 +16,130 @@ using namespace std;
 
 BOOST_FIXTURE_TEST_SUITE(pow_tests, BasicTestingSetup)
 
-/* Test calculation of next difficulty target with no constraints applying */
-BOOST_AUTO_TEST_CASE(get_next_work)
+static void LinkBlock(CBlockIndex& block, CBlockIndex* prev, int height, int64_t time, unsigned int bits)
 {
-    SelectParams(CBaseChainParams::MAIN);
-    const Consensus::Params& params = Params().GetConsensus();
-
-    int64_t nLastRetargetTime = 1261130161; // Block #30240
-    CBlockIndex pindexLast;
-    pindexLast.nHeight = 32255;
-    pindexLast.nTime = 1262152739;  // Block #32255
-    pindexLast.nBits = 0x1d00ffff;
-    BOOST_CHECK_EQUAL(CalculateNextTargetRequired(&pindexLast, nLastRetargetTime, params, false), 0x1d00d86a);
+    block.pprev = prev;
+    block.nHeight = height;
+    block.nTime = time;
+    block.nBits = bits;
 }
 
-/* Test the constraint on the upper bound for next work */
-BOOST_AUTO_TEST_CASE(get_next_work_pow_limit)
+BOOST_AUTO_TEST_CASE(initial_pow_blocks_use_pow_limit)
 {
     SelectParams(CBaseChainParams::MAIN);
     const Consensus::Params& params = Params().GetConsensus();
 
-    int64_t nLastRetargetTime = 1231006505; // Block #0
-    CBlockIndex pindexLast;
-    pindexLast.nHeight = 2015;
-    pindexLast.nTime = 1233061996;  // Block #2015
-    pindexLast.nBits = 0x1d00ffff;
-    BOOST_CHECK_EQUAL(CalculateNextTargetRequired(&pindexLast, nLastRetargetTime, params, false), 0x1d00ffff);
+    CBlockIndex first;
+    LinkBlock(first, NULL, 0, 1500000000, UintToArith256(params.powLimit).GetCompact());
+
+    BOOST_CHECK_EQUAL(
+        GetNextTargetRequired(&first, NULL, params, false),
+        UintToArith256(params.powLimit).GetCompact());
+
+    CBlockIndex second;
+    LinkBlock(second, &first, 1, first.nTime + params.nTargetSpacingV1,
+              UintToArith256(params.powLimit).GetCompact());
+
+    BOOST_CHECK_EQUAL(
+        GetNextTargetRequired(&second, NULL, params, false),
+        UintToArith256(params.powLimit).GetCompact());
 }
 
-/* Test the constraint on the lower bound for actual time taken */
-BOOST_AUTO_TEST_CASE(get_next_work_lower_limit_actual)
+BOOST_AUTO_TEST_CASE(target_spacing_keeps_target_stable)
 {
     SelectParams(CBaseChainParams::MAIN);
     const Consensus::Params& params = Params().GetConsensus();
 
-    int64_t nLastRetargetTime = 1279008237; // Block #66528
-    CBlockIndex pindexLast;
-    pindexLast.nHeight = 68543;
-    pindexLast.nTime = 1279297671;  // Block #68543
-    pindexLast.nBits = 0x1c05a3f4;
-    BOOST_CHECK_EQUAL(CalculateNextTargetRequired(&pindexLast, nLastRetargetTime, params, false), 0x1c0168fd);
+    const int height = 1300000;
+    const int64_t spacing = params.nTargetSpacing;
+    const arith_uint256 baseTarget = UintToArith256(params.powLimit) >> 4;
+    const unsigned int bits = baseTarget.GetCompact();
+
+    CBlockIndex first;
+    CBlockIndex second;
+    CBlockIndex third;
+
+    LinkBlock(first, NULL, height - 2, 1500000000, bits);
+    LinkBlock(second, &first, height - 1, first.nTime + spacing, bits);
+    LinkBlock(third, &second, height, second.nTime + spacing, bits);
+
+    BOOST_CHECK_EQUAL(GetNextTargetRequired(&third, NULL, params, false), bits);
 }
 
-/* Test the constraint on the upper bound for actual time taken */
-BOOST_AUTO_TEST_CASE(get_next_work_upper_limit_actual)
+BOOST_AUTO_TEST_CASE(shorter_spacing_increases_difficulty)
 {
     SelectParams(CBaseChainParams::MAIN);
     const Consensus::Params& params = Params().GetConsensus();
 
-    int64_t nLastRetargetTime = 1263163443; // NOTE: Not an actual block time
-    CBlockIndex pindexLast;
-    pindexLast.nHeight = 46367;
-    pindexLast.nTime = 1269211443;  // Block #46367
-    pindexLast.nBits = 0x1c387f6f;
-    BOOST_CHECK_EQUAL(CalculateNextTargetRequired(&pindexLast, nLastRetargetTime, params, false), 0x1d00e1fd);
+    const int height = 1300000;
+    const int64_t spacing = params.nTargetSpacing;
+    const arith_uint256 baseTarget = UintToArith256(params.powLimit) >> 4;
+    const unsigned int bits = baseTarget.GetCompact();
+
+    CBlockIndex first;
+    CBlockIndex second;
+    CBlockIndex third;
+
+    LinkBlock(first, NULL, height - 2, 1500000000, bits);
+    LinkBlock(second, &first, height - 1, first.nTime + spacing, bits);
+    LinkBlock(third, &second, height, second.nTime + spacing / 2, bits);
+
+    arith_uint256 result;
+    result.SetCompact(GetNextTargetRequired(&third, NULL, params, false));
+
+    arith_uint256 decodedBase;
+    decodedBase.SetCompact(bits);
+
+    BOOST_CHECK(result < decodedBase);
+}
+
+BOOST_AUTO_TEST_CASE(longer_spacing_decreases_difficulty)
+{
+    SelectParams(CBaseChainParams::MAIN);
+    const Consensus::Params& params = Params().GetConsensus();
+
+    const int height = 1300000;
+    const int64_t spacing = params.nTargetSpacing;
+    const arith_uint256 baseTarget = UintToArith256(params.powLimit) >> 4;
+    const unsigned int bits = baseTarget.GetCompact();
+
+    CBlockIndex first;
+    CBlockIndex second;
+    CBlockIndex third;
+
+    LinkBlock(first, NULL, height - 2, 1500000000, bits);
+    LinkBlock(second, &first, height - 1, first.nTime + spacing, bits);
+    LinkBlock(third, &second, height, second.nTime + spacing * 2, bits);
+
+    arith_uint256 result;
+    result.SetCompact(GetNextTargetRequired(&third, NULL, params, false));
+
+    arith_uint256 decodedBase;
+    decodedBase.SetCompact(bits);
+
+    BOOST_CHECK(result > decodedBase);
+    BOOST_CHECK(result <= UintToArith256(params.powLimit));
+}
+
+BOOST_AUTO_TEST_CASE(negative_spacing_after_height_10000_is_normalized)
+{
+    SelectParams(CBaseChainParams::MAIN);
+    const Consensus::Params& params = Params().GetConsensus();
+
+    const int height = 1300000;
+    const int64_t spacing = params.nTargetSpacing;
+    const arith_uint256 baseTarget = UintToArith256(params.powLimit) >> 4;
+    const unsigned int bits = baseTarget.GetCompact();
+
+    CBlockIndex first;
+    CBlockIndex second;
+    CBlockIndex third;
+
+    LinkBlock(first, NULL, height - 2, 1500000000, bits);
+    LinkBlock(second, &first, height - 1, first.nTime + spacing, bits);
+    LinkBlock(third, &second, height, second.nTime - spacing, bits);
+
+    BOOST_CHECK_EQUAL(GetNextTargetRequired(&third, NULL, params, false), bits);
 }
 
 BOOST_AUTO_TEST_CASE(GetBlockProofEquivalentTime_test)
@@ -81,7 +152,7 @@ BOOST_AUTO_TEST_CASE(GetBlockProofEquivalentTime_test)
         blocks[i].pprev = i ? &blocks[i - 1] : NULL;
         blocks[i].nHeight = i;
         blocks[i].nTime = 1269211443 + i * params.nTargetSpacing;
-        blocks[i].nBits = 0x207fffff; /* target 0x7fffff000... */
+        blocks[i].nBits = 0x207fffff;
         blocks[i].nChainWork = i ? blocks[i - 1].nChainWork + GetBlockProof(blocks[i - 1]) : arith_uint256(0);
     }
 
