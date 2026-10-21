@@ -293,5 +293,5 @@ jobs:
       - name: Build unit-test binary
         run: make -j2 src/test/test_bitcoin
 
-      - name: Run PoW regression suite
-        run: src/test/test_bitcoin --run_test=pow_tests
+      - name: Run core unit-test suite
+        run: src/test/test_bitcoin
