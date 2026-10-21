@@ -56,6 +56,9 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v4
 
+      - name: Restore required script permissions
+        run: chmod +x share/genbuild.sh
+
       - name: Generate configure scripts
         run: bash ./autogen.sh
 
