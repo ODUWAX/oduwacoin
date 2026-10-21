@@ -8,6 +8,7 @@
 #include "test/test_bitcoin.h"
 
 #include <boost/test/unit_test.hpp>
+#include <algorithm>
 #include <list>
 #include <vector>
 
@@ -388,7 +389,13 @@ BOOST_AUTO_TEST_CASE(MempoolAncestorIndexingTest)
 
     pool.addUnchecked(tx6.GetHash(), entry.Fee(0LL).FromTx(tx6));
     BOOST_CHECK_EQUAL(pool.size(), 6);
-    sortedOrder.push_back(tx6.GetHash().ToString());
+    // tx3 and tx6 both have a zero ancestor feerate, so their tie is
+    // resolved by the uint256 hash comparator used by ancestor_score.
+    if (tx3.GetHash() < tx6.GetHash()) {
+        sortedOrder.push_back(tx6.GetHash().ToString());
+    } else {
+        sortedOrder.insert(sortedOrder.end() - 1, tx6.GetHash().ToString());
+    }
     CheckSort<ancestor_score>(pool, sortedOrder);
 
     CMutableTransaction tx7 = CMutableTransaction();
@@ -416,7 +423,7 @@ BOOST_AUTO_TEST_CASE(MempoolAncestorIndexingTest)
     pool.removeForBlock(vtx, 1, dummy, false);
 
     sortedOrder.erase(sortedOrder.begin()+1);
-    sortedOrder.pop_back();
+    sortedOrder.erase(std::find(sortedOrder.begin(), sortedOrder.end(), tx6.GetHash().ToString()));
     sortedOrder.insert(sortedOrder.begin(), tx7.GetHash().ToString());
     CheckSort<ancestor_score>(pool, sortedOrder);
 }
