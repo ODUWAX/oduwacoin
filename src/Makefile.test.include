@@ -39,6 +39,10 @@ RAW_TEST_FILES =
 GENERATED_TEST_FILES = $(JSON_TEST_FILES:.json=.json.h) $(RAW_TEST_FILES:.raw=.raw.h)
 # Disable BIP152
 # test/blockencodings_tests.cpp
+#
+# bloom_tests.cpp is temporarily quarantined because its inherited Bitcoin
+# serialized transaction/block fixtures do not include OduwaCoin's nTime field,
+# and its Bitcoin WIF fixture does not match OduwaCoin's SECRET_KEY prefix.
 BITCOIN_TESTS =\
   test/arith_uint256_tests.cpp \
   test/scriptnum10.h \
@@ -48,9 +52,6 @@ BITCOIN_TESTS =\
   test/base32_tests.cpp \
   test/base64_tests.cpp \
   test/bip32_tests.cpp \
-  # bloom_tests.cpp is temporarily quarantined: its inherited Bitcoin \
-  # serialized transaction/block fixtures do not include OduwaCoin's nTime field, \
-  # and its Bitcoin WIF fixture does not match OduwaCoin's SECRET_KEY prefix. \
   test/bswap_tests.cpp \
   test/checkblock_tests.cpp \
   test/cashaddr_tests.cpp \
