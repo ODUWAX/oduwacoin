@@ -411,13 +411,16 @@ UniValue getnetworkinfo(const UniValue& params, bool fHelp)
             "  \"localservices\": \"xxxxxxxxxxxxxxxx\", (string) the services we offer to the network\n"
             "  \"localrelay\": true|false,              (bool) true if transaction relay is requested from peers\n"
             "  \"timeoffset\": xxxxx,                   (numeric) the time offset\n"
-            "  \"connections\": xxxxx,                  (numeric) the number of connections\n"
+            "  \"connections\": xxxxx,                  (numeric) the total number of connections\n"
+            "  \"connections_in\": xxxxx,               (numeric) the number of inbound connections\n"
+            "  \"connections_out\": xxxxx,              (numeric) the number of outbound connections\n"
             "  \"networks\": [                          (array) information per network\n"
             "  {\n"
             "    \"name\": \"xxx\",                     (string) network (ipv4, ipv6 or onion)\n"
             "    \"limited\": true|false,               (boolean) is the network limited using -onlynet?\n"
             "    \"reachable\": true|false,             (boolean) is the network reachable?\n"
-            "    \"proxy\": \"host:port\"               (string) the proxy that is used for this network, or empty if none\n"
+            "    \"proxy\": \"host:port\",              (string) the proxy that is used for this network, or empty if none\n"
+            "    \"proxy_randomize_credentials\": true|false (boolean) whether randomized proxy credentials are used\n"
             "  }\n"
             "  ,...\n"
             "  ],\n"
@@ -439,6 +442,17 @@ UniValue getnetworkinfo(const UniValue& params, bool fHelp)
 
     LOCK(cs_main);
 
+    vector<CNodeStats> vstats;
+    CopyNodeStats(vstats);
+
+    int connectionsIn = 0;
+    BOOST_FOREACH(const CNodeStats& stats, vstats) {
+        if (stats.fInbound)
+            ++connectionsIn;
+    }
+    const int connectionsTotal = (int)vstats.size();
+    const int connectionsOut = connectionsTotal - connectionsIn;
+
     UniValue obj(UniValue::VOBJ);
     obj.push_back(Pair("version",       CLIENT_VERSION));
     obj.push_back(Pair("subversion",    strSubVersion));
@@ -446,7 +460,9 @@ UniValue getnetworkinfo(const UniValue& params, bool fHelp)
     obj.push_back(Pair("localservices",       strprintf("%016x", nLocalServices)));
     obj.push_back(Pair("localrelay",     fRelayTxes));
     obj.push_back(Pair("timeoffset",    GetTimeOffset()));
-    obj.push_back(Pair("connections",   (int)vNodes.size()));
+    obj.push_back(Pair("connections",   connectionsTotal));
+    obj.push_back(Pair("connections_in", connectionsIn));
+    obj.push_back(Pair("connections_out", connectionsOut));
     obj.push_back(Pair("networks",      GetNetworksInfo()));
     obj.push_back(Pair("relayfee",      ValueFromAmount(::minRelayTxFee.GetFeePerK())));
     UniValue localAddresses(UniValue::VARR);
