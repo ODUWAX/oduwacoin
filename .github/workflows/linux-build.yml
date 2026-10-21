@@ -18,11 +18,21 @@ concurrency:
 
 jobs:
   daemon-cli:
-    name: Ubuntu 20.04 daemon and CLI
+    name: ${{ matrix.name }} daemon and CLI
     runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Ubuntu 20.04
+            image: ubuntu:20.04
+          - name: Ubuntu 22.04
+            image: ubuntu:22.04
+
     container:
-      image: ubuntu:20.04
-    timeout-minutes: 30
+      image: ${{ matrix.image }}
 
     env:
       DEBIAN_FRONTEND: noninteractive

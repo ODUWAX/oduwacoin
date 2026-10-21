@@ -65,7 +65,7 @@ Dependency Build Instructions: Ubuntu & Debian
 ----------------------------------------------
 Build requirements:
 
-    sudo apt-get install build-essential libtool autotools-dev automake pkg-config libssl-dev libevent-dev bsdmainutils
+    sudo apt-get install build-essential libtool autotools-dev automake pkg-config python3 git bsdmainutils libssl-dev libevent-dev libdb-dev libdb++-dev
 
 Options when installing required Boost library files:
 
@@ -79,14 +79,13 @@ install necessary parts of boost:
 
         sudo apt-get install libboost-all-dev
 
-BerkeleyDB 6.2 is required for the wallet.
+Berkeley DB 6.2 is the wallet-compatibility target documented for the v2.0.0.2 release line.
 
-Ubuntu and Debian have their own libdb-dev and libdb++-dev packages, but these will most likely install
-BerkeleyDB 5.1, which break binary wallet compatibility with the distributed executables which
-are based on BerkeleyDB 6.2. If you do not care about wallet compatibility,
-pass `--with-incompatible-bdb` to configure.
+Ubuntu and Debian provide `libdb-dev` and `libdb++-dev`, but the packaged Berkeley DB version may differ from the release-wallet build. The public CI workflow therefore uses `--with-incompatible-bdb` only to validate compilation across supported Linux build environments.
 
-See the section "Disable-wallet mode" to build OduwaCoin without wallet.
+For production wallet portability, use the project-documented Berkeley DB version rather than assuming the distribution package is wallet-compatible.
+
+The current CI build keeps wallet support enabled because the v2.0.0.2 mining/RPC path still references wallet symbols.
 
 Optional:
 
@@ -244,17 +243,15 @@ Hardening enables the following features:
 
     The STK RW- means that the stack is readable and writeable but not executable.
 
-Disable-wallet mode
---------------------
-When the intention is to run only a P2P node without a wallet, oduwacoin may be compiled in
-disable-wallet mode with:
+Wallet-disabled build status
+----------------------------
+The configure script exposes `--disable-wallet`, but the current v2.0.0.2 source still has mining/RPC code paths that reference wallet symbols. A wallet-disabled build is therefore **not part of the supported CI configuration at this time**.
 
-    ./configure --disable-wallet
+The public Linux CI build validates the daemon and CLI with wallet support enabled and uses:
 
-In this case there is no dependency on Berkeley DB 4.8.
+    ./configure --with-incompatible-bdb --without-gui --without-miniupnpc --disable-zmq --disable-tests --disable-bench
 
-Mining is also possible in disable-wallet mode, but only using the `getblocktemplate` RPC
-call not `getwork`.
+This is a build-compatibility check. It does not change consensus rules, staking behavior, or wallet data formats.
 
 Additional Configure Flags
 --------------------------
@@ -268,7 +265,7 @@ Setup and Build Example: Arch Linux
 This example lists the steps necessary to setup and build a command line only, non-wallet distribution of the latest changes on Arch Linux:
 
     pacman -S git base-devel boost libevent python
-    git clone https://gitlab.com/oduwacoin/oduwacoin.git
+    git clone https://github.com/ODUWAX/oduwacoin.git
     cd oduwacoin/
     ./autogen.sh
     ./configure --disable-wallet --without-gui --without-miniupnpc
