@@ -91,3 +91,71 @@ jobs:
           test -x src/oduwacoin-cli
           src/oduwacoind --version
           src/oduwacoin-cli --version
+
+
+  wallet-regression:
+    name: Ubuntu 20.04 wallet regression tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    container:
+      image: ubuntu:20.04
+
+    env:
+      DEBIAN_FRONTEND: noninteractive
+
+    steps:
+      - name: Install build dependencies
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            ca-certificates \
+            git \
+            build-essential \
+            libtool \
+            autotools-dev \
+            automake \
+            pkg-config \
+            python3 \
+            bsdmainutils \
+            libssl-dev \
+            libevent-dev \
+            libdb-dev \
+            libdb++-dev \
+            libboost-system-dev \
+            libboost-filesystem-dev \
+            libboost-chrono-dev \
+            libboost-program-options-dev \
+            libboost-test-dev \
+            libboost-thread-dev \
+            libboost-random-dev
+
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Restore required script permissions
+        run: chmod +x share/genbuild.sh
+
+      - name: Generate configure scripts
+        run: bash ./autogen.sh
+
+      - name: Configure wallet test build
+        run: |
+          ./configure \
+            --with-incompatible-bdb \
+            --without-gui \
+            --without-miniupnpc \
+            --disable-zmq \
+            --enable-tests \
+            --disable-bench
+
+      - name: Build wallet unit test binary
+        run: make -j2 src/test/test_bitcoin
+
+      - name: Run wallet regression suites
+        run: |
+          src/test/test_bitcoin --run_test=wallet_tests
+          src/test/test_bitcoin --run_test=walletdb_tests
+          src/test/test_bitcoin --run_test=wallet_crypto
+          src/test/test_bitcoin --run_test=accounting_tests
+          src/test/test_bitcoin --run_test=rpc_wallet_tests
