@@ -291,12 +291,12 @@ BOOST_AUTO_TEST_CASE(test_addresses)
         {203, 72, 18, 50, 41, 156, 213, 116, 49, 81, 172, 75, 45, 99, 174, 25, 142, 123, 176, 169},
         {1, 31, 40, 228, 115, 201, 95, 64, 19, 215, 213, 62, 197, 251, 195, 180, 45, 248, 237, 16}};
 
-    std::vector<std::string> pubkey = {"oduwacoin:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a",
-        "oduwacoin:qr95sy3j9xwd2ap32xkykttr4cvcu7as4y0qverfuy",
-        "oduwacoin:qqq3728yw0y47sqn6l2na30mcw6zm78dzqre909m2r"};
-    std::vector<std::string> script = {"oduwacoin:ppm2qsznhks23z7629mms6s4cwef74vcwvn0h829pq",
-        "oduwacoin:pr95sy3j9xwd2ap32xkykttr4cvcu7as4yc93ky28e",
-        "oduwacoin:pqq3728yw0y47sqn6l2na30mcw6zm78dzq5ucqzc37"};
+    std::vector<std::string> pubkey = {"oduwacoin:qpm2qsznhks23z7629mms6s4cwef74vcwvpem06cv4",
+        "oduwacoin:qr95sy3j9xwd2ap32xkykttr4cvcu7as4y2na75h2v",
+        "oduwacoin:qqq3728yw0y47sqn6l2na30mcw6zm78dzqx25gj9ut"};
+    std::vector<std::string> script = {"oduwacoin:ppm2qsznhks23z7629mms6s4cwef74vcwvkuxqamhg",
+        "oduwacoin:pr95sy3j9xwd2ap32xkykttr4cvcu7as4yakq3n533",
+        "oduwacoin:pqq3728yw0y47sqn6l2na30mcw6zm78dzq30f84x8k"};
 
     for (size_t i = 0; i < hash.size(); ++i)
     {
