@@ -62,10 +62,10 @@ jobs:
       - name: Generate configure scripts
         run: bash ./autogen.sh
 
-      - name: Configure daemon-only build
+      - name: Configure legacy daemon and CLI build
         run: |
           ./configure \
-            --disable-wallet \
+            --with-incompatible-bdb \
             --without-gui \
             --without-miniupnpc \
             --disable-zmq \
