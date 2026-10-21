@@ -166,19 +166,18 @@ jobs:
           mkdir -p "$DATADIR"
 
           src/oduwacoind \
-            -regtest \
             -datadir="$DATADIR" \
             -daemon \
             -server \
             -listen=0 \
             -discover=0 \
             -dnsseed=0 \
+            -maxconnections=0 \
             -rpcuser="$RPC_USER" \
             -rpcpassword="$RPC_PASSWORD"
 
           cli() {
             src/oduwacoin-cli \
-              -regtest \
               -datadir="$DATADIR" \
               -rpcuser="$RPC_USER" \
               -rpcpassword="$RPC_PASSWORD" \
