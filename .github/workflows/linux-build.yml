@@ -1,0 +1,83 @@
+name: Linux build
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: linux-build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  daemon-cli:
+    name: Ubuntu 20.04 daemon and CLI
+    runs-on: ubuntu-latest
+    container:
+      image: ubuntu:20.04
+    timeout-minutes: 30
+
+    env:
+      DEBIAN_FRONTEND: noninteractive
+
+    steps:
+      - name: Install build dependencies
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            ca-certificates \
+            git \
+            build-essential \
+            libtool \
+            autotools-dev \
+            automake \
+            pkg-config \
+            python3 \
+            bsdmainutils \
+            libssl-dev \
+            libevent-dev \
+            libdb-dev \
+            libdb++-dev \
+            libboost-system-dev \
+            libboost-filesystem-dev \
+            libboost-chrono-dev \
+            libboost-program-options-dev \
+            libboost-test-dev \
+            libboost-thread-dev \
+            libboost-random-dev
+
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Restore required script permissions
+        run: chmod +x share/genbuild.sh
+
+      - name: Generate configure scripts
+        run: bash ./autogen.sh
+
+      - name: Configure legacy daemon and CLI build
+        run: |
+          ./configure \
+            --with-incompatible-bdb \
+            --without-gui \
+            --without-miniupnpc \
+            --disable-zmq \
+            --disable-tests \
+            --disable-bench
+
+      - name: Build
+        run: make -j2
+
+      - name: Verify binaries
+        run: |
+          test -x src/oduwacoind
+          test -x src/oduwacoin-cli
+          src/oduwacoind --version
+          src/oduwacoin-cli --version
