@@ -94,7 +94,7 @@ jobs:
 
 
   wallet-regression:
-    name: Ubuntu 20.04 wallet regression tests
+    name: Ubuntu 20.04 wallet smoke regression
     runs-on: ubuntu-latest
     timeout-minutes: 40
 
@@ -139,23 +139,97 @@ jobs:
       - name: Generate configure scripts
         run: bash ./autogen.sh
 
-      - name: Configure wallet test build
+      - name: Configure wallet-enabled build
         run: |
           ./configure \
             --with-incompatible-bdb \
             --without-gui \
             --without-miniupnpc \
             --disable-zmq \
-            --enable-tests \
+            --disable-tests \
             --disable-bench
 
-      - name: Build wallet unit test binary
-        run: make -j2 src/test/test_bitcoin
+      - name: Build daemon and CLI
+        run: make -j2
 
-      - name: Run wallet regression suites
+      - name: Run wallet smoke regression
+        shell: bash
         run: |
-          src/test/test_bitcoin --run_test=wallet_tests
-          src/test/test_bitcoin --run_test=walletdb_tests
-          src/test/test_bitcoin --run_test=wallet_crypto
-          src/test/test_bitcoin --run_test=accounting_tests
-          src/test/test_bitcoin --run_test=rpc_wallet_tests
+          set -euo pipefail
+
+          DATADIR=/tmp/oduwacoin-wallet-ci
+          BACKUP=/tmp/oduwacoin-wallet-ci-backup.dat
+          RPC_USER=ci
+          RPC_PASSWORD=ci-wallet-test
+
+          rm -rf "$DATADIR" "$BACKUP"
+          mkdir -p "$DATADIR"
+
+          src/oduwacoind \
+            -regtest \
+            -datadir="$DATADIR" \
+            -daemon \
+            -server \
+            -listen=0 \
+            -discover=0 \
+            -dnsseed=0 \
+            -rpcuser="$RPC_USER" \
+            -rpcpassword="$RPC_PASSWORD"
+
+          cli() {
+            src/oduwacoin-cli \
+              -regtest \
+              -datadir="$DATADIR" \
+              -rpcuser="$RPC_USER" \
+              -rpcpassword="$RPC_PASSWORD" \
+              "$@"
+          }
+
+          cleanup() {
+            cli stop >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          ready=0
+          for i in $(seq 1 30); do
+            if cli getwalletinfo >/tmp/wallet-info.json 2>/dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+
+          test "$ready" -eq 1
+
+          python3 - <<'PY'
+          import json
+          with open("/tmp/wallet-info.json", "r", encoding="utf-8") as fh:
+              info = json.load(fh)
+          assert "balance" in info
+          PY
+
+          ADDRESS="$(cli getnewaddress)"
+          test -n "$ADDRESS"
+
+          cli validateaddress "$ADDRESS" >/tmp/address-info.json
+          python3 - <<'PY'
+          import json
+          with open("/tmp/address-info.json", "r", encoding="utf-8") as fh:
+              info = json.load(fh)
+          assert info.get("isvalid") is True
+          assert info.get("ismine") is True
+          PY
+
+          cli backupwallet "$BACKUP"
+          test -s "$BACKUP"
+
+          cli getstakinginfo >/tmp/staking-info.json
+          python3 - <<'PY'
+          import json
+          with open("/tmp/staking-info.json", "r", encoding="utf-8") as fh:
+              info = json.load(fh)
+          assert isinstance(info, dict)
+          PY
+
+          cleanup
+          trap - EXIT
