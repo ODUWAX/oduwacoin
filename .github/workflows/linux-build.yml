@@ -91,3 +91,144 @@ jobs:
           test -x src/oduwacoin-cli
           src/oduwacoind --version
           src/oduwacoin-cli --version
+
+
+  wallet-regression:
+    name: Ubuntu 20.04 wallet smoke regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    container:
+      image: ubuntu:20.04
+
+    env:
+      DEBIAN_FRONTEND: noninteractive
+
+    steps:
+      - name: Install build dependencies
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            ca-certificates \
+            git \
+            build-essential \
+            libtool \
+            autotools-dev \
+            automake \
+            pkg-config \
+            python3 \
+            bsdmainutils \
+            libssl-dev \
+            libevent-dev \
+            libdb-dev \
+            libdb++-dev \
+            libboost-system-dev \
+            libboost-filesystem-dev \
+            libboost-chrono-dev \
+            libboost-program-options-dev \
+            libboost-test-dev \
+            libboost-thread-dev \
+            libboost-random-dev
+
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Restore required script permissions
+        run: chmod +x share/genbuild.sh
+
+      - name: Generate configure scripts
+        run: bash ./autogen.sh
+
+      - name: Configure wallet-enabled build
+        run: |
+          ./configure \
+            --with-incompatible-bdb \
+            --without-gui \
+            --without-miniupnpc \
+            --disable-zmq \
+            --disable-tests \
+            --disable-bench
+
+      - name: Build daemon and CLI
+        run: make -j2
+
+      - name: Run wallet smoke regression
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          DATADIR=/tmp/oduwacoin-wallet-ci
+          BACKUP=/tmp/oduwacoin-wallet-ci-backup.dat
+          RPC_USER=ci
+          RPC_PASSWORD=ci-wallet-test
+
+          rm -rf "$DATADIR" "$BACKUP"
+          mkdir -p "$DATADIR"
+
+          src/oduwacoind \
+            -datadir="$DATADIR" \
+            -daemon \
+            -server \
+            -listen=0 \
+            -discover=0 \
+            -dnsseed=0 \
+            -maxconnections=0 \
+            -rpcuser="$RPC_USER" \
+            -rpcpassword="$RPC_PASSWORD"
+
+          cli() {
+            src/oduwacoin-cli \
+              -datadir="$DATADIR" \
+              -rpcuser="$RPC_USER" \
+              -rpcpassword="$RPC_PASSWORD" \
+              "$@"
+          }
+
+          cleanup() {
+            cli stop >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          ready=0
+          for i in $(seq 1 30); do
+            if cli getwalletinfo >/tmp/wallet-info.json 2>/dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+
+          test "$ready" -eq 1
+
+          python3 - <<'PY'
+          import json
+          with open("/tmp/wallet-info.json", "r", encoding="utf-8") as fh:
+              info = json.load(fh)
+          assert "balance" in info
+          PY
+
+          ADDRESS="$(cli getnewaddress)"
+          test -n "$ADDRESS"
+
+          cli validateaddress "$ADDRESS" >/tmp/address-info.json
+          python3 - <<'PY'
+          import json
+          with open("/tmp/address-info.json", "r", encoding="utf-8") as fh:
+              info = json.load(fh)
+          assert info.get("isvalid") is True
+          assert info.get("ismine") is True
+          PY
+
+          cli backupwallet "$BACKUP"
+          test -s "$BACKUP"
+
+          cli getstakinginfo >/tmp/staking-info.json
+          python3 - <<'PY'
+          import json
+          with open("/tmp/staking-info.json", "r", encoding="utf-8") as fh:
+              info = json.load(fh)
+          assert isinstance(info, dict)
+          PY
+
+          cleanup
+          trap - EXIT
