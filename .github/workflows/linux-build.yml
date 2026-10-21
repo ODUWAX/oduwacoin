@@ -293,5 +293,62 @@ jobs:
       - name: Build unit-test binary
         run: make -j2 src/test/test_bitcoin
 
-      - name: Run core unit-test suite
-        run: src/test/test_bitcoin
+      - name: Inventory core unit-test suites
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python3 - <<'PY'
+          import subprocess
+          import sys
+
+          binary = "src/test/test_bitcoin"
+
+          listed = subprocess.run(
+              [binary, "--list_content"],
+              stdout=subprocess.PIPE,
+              stderr=subprocess.STDOUT,
+              text=True,
+          )
+
+          suites = []
+          for raw in listed.stdout.splitlines():
+              if raw and not raw[0].isspace() and raw.rstrip().endswith("*"):
+                  suites.append(raw.strip().rstrip("*"))
+
+          if not suites:
+              print("Unable to discover top-level Boost test suites.")
+              print(listed.stdout)
+              sys.exit(2)
+
+          print(f"Discovered {len(suites)} top-level test suites.")
+
+          failures = []
+          for suite in suites:
+              print(f"\n=== RUN {suite} ===")
+              result = subprocess.run(
+                  [binary, f"--run_test={suite}"],
+                  stdout=subprocess.PIPE,
+                  stderr=subprocess.STDOUT,
+                  text=True,
+              )
+
+              if result.returncode == 0:
+                  print(f"PASS: {suite}")
+                  continue
+
+              failures.append(suite)
+              print(f"FAIL: {suite} (exit {result.returncode})")
+              tail = result.stdout.splitlines()[-100:]
+              print("\n".join(tail))
+
+          print("\n=== UNIT TEST INVENTORY ===")
+          print(f"Passed: {len(suites) - len(failures)}")
+          print(f"Failed: {len(failures)}")
+
+          if failures:
+              print("Failing suites:")
+              for suite in failures:
+                  print(f" - {suite}")
+              sys.exit(1)
+          PY
