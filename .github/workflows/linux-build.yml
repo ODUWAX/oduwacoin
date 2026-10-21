@@ -232,3 +232,66 @@ jobs:
 
           cleanup
           trap - EXIT
+
+
+  core-unit-tests:
+    name: Ubuntu 20.04 core unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    container:
+      image: ubuntu:20.04
+
+    env:
+      DEBIAN_FRONTEND: noninteractive
+
+    steps:
+      - name: Install build dependencies
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            ca-certificates \
+            git \
+            build-essential \
+            libtool \
+            autotools-dev \
+            automake \
+            pkg-config \
+            python3 \
+            bsdmainutils \
+            libssl-dev \
+            libevent-dev \
+            libdb-dev \
+            libdb++-dev \
+            libboost-system-dev \
+            libboost-filesystem-dev \
+            libboost-chrono-dev \
+            libboost-program-options-dev \
+            libboost-test-dev \
+            libboost-thread-dev \
+            libboost-random-dev
+
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Restore required script permissions
+        run: chmod +x share/genbuild.sh
+
+      - name: Generate configure scripts
+        run: bash ./autogen.sh
+
+      - name: Configure unit-test build
+        run: |
+          ./configure \
+            --with-incompatible-bdb \
+            --without-gui \
+            --without-miniupnpc \
+            --disable-zmq \
+            --enable-tests \
+            --disable-bench
+
+      - name: Build unit-test binary
+        run: make -j2 src/test/test_bitcoin
+
+      - name: Run PoW regression suite
+        run: src/test/test_bitcoin --run_test=pow_tests
