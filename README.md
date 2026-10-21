@@ -1,12 +1,71 @@
-Oduwacoin:2.0.0.2/EDOSA
-=====================================
+# OduwaCoin Core
 
-Oduwacoin, the first indigenous Pure-PoS Cryptocurrency designed to empower people of African descent.
+**Current public release: v2.0.0.2 / EDOSA**
 
-After three years of network operations, the developers of OduwaCoin have come up with an improvement for on-chain executions for its fungible currency.
+OduwaCoin Core is the reference implementation for the OduwaCoin network. OWC is the native currency used by the network.
 
-The blockchain upgrade is an optimization to the existing Altcoin source code and bitcoin core protocol backbone . Ivie will enable network improvement, staking algorithm, removal of bugs, optimized wallet, wallet user interface enhancements, HD wallet upgrade, fake stake vulnerability fix, greater stability, and much more within the Oduwa network, powered by its native cryptocurrency known as OduwaCoin.
+This repository contains the node, wallet, RPC, networking, staking, and supporting code used to build OduwaCoin Core.
 
-Oduwa Core network contributors find it very important to keep its competitive culture alive as a non-correlative asset. This upgraded version will highlight a critical step in the journey to deliver blockchain applications that directly connect to real people, particularly those informed by the members’ community.
+## Current release
 
-Stakers and node operators will need to update their clients to the latest Daemon Version. However, holders of OWC in their wallets or exchange do not need to do anything for this upgrade.
+Version **2.0.0.2 / EDOSA** includes maintenance and reliability improvements such as:
+
+- `getstakereport` RPC support for staking activity and rewards
+- increased outbound peer connectivity
+- updated secp256k1, UniValue, and LevelDB components
+- Qt and other dependency updates
+- wallet, staking, and network stability improvements carried forward from the IVIE release line
+
+Release downloads and notes:
+
+https://github.com/ODUWAX/oduwacoin/releases/tag/v2.0.0.2
+
+## Verified blockchain bootstrap
+
+A bootstrap archive is available for operators who need to initialize the blockchain database more quickly.
+
+**Download**
+
+https://bootstrap.oduwacoin.io/OduwaCoin-DB.zip
+
+**SHA-256**
+
+`0a54fb501f8986ee1dcffed18cf7bb12d7d20b3f39a2ba4f8a1018dfd4ec59bb`
+
+**Checksum file**
+
+https://bootstrap.oduwacoin.io/OduwaCoin-DB.zip.sha256
+
+Always back up `wallet.dat` and fully stop OduwaCoin Core before replacing blockchain data directories.
+
+## Building from source
+
+Start with [INSTALL.md](INSTALL.md), then use the platform-specific instructions under [doc/](doc/).
+
+Typical Unix build flow:
+
+```bash
+./autogen.sh
+./configure
+make
+```
+
+Build and dependency requirements vary by operating system. Review the platform-specific build notes before compiling.
+
+## Contributing
+
+OduwaCoin is open source. Contributions should be proposed through focused pull requests and reviewed before merge.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the contributor workflow and review expectations.
+
+Consensus-critical changes require substantially more review than documentation, build, testing, or non-consensus maintenance changes.
+
+## Security
+
+Please do not disclose exploitable vulnerabilities in a public issue.
+
+See [SECURITY.md](SECURITY.md) for the responsible disclosure process.
+
+## License
+
+OduwaCoin Core is distributed under the MIT software license. See [COPYING](COPYING).
