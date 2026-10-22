@@ -8,6 +8,7 @@
 #include "base58.h"
 #include "dstencode.h"
 #include "main.h"
+#include "util.h"
 #include "wallet/wallet.h"
 
 #include "wallet/test/wallet_test_fixture.h"
@@ -23,6 +24,44 @@ extern UniValue createArgs(int nRequired, const char* address1 = NULL, const cha
 extern UniValue CallRPC(string args);
 
 extern CWallet* pwalletMain;
+
+namespace {
+class ScopedWalletAccountRpcSettings
+{
+private:
+    bool hadEnableAccounts;
+    bool hadStaking;
+    std::string oldEnableAccounts;
+    std::string oldStaking;
+
+public:
+    ScopedWalletAccountRpcSettings()
+        : hadEnableAccounts(mapArgs.count("-enableaccounts") != 0),
+          hadStaking(mapArgs.count("-staking") != 0)
+    {
+        if (hadEnableAccounts)
+            oldEnableAccounts = mapArgs["-enableaccounts"];
+        if (hadStaking)
+            oldStaking = mapArgs["-staking"];
+
+        mapArgs["-enableaccounts"] = "1";
+        mapArgs["-staking"] = "0";
+    }
+
+    ~ScopedWalletAccountRpcSettings()
+    {
+        if (hadEnableAccounts)
+            mapArgs["-enableaccounts"] = oldEnableAccounts;
+        else
+            mapArgs.erase("-enableaccounts");
+
+        if (hadStaking)
+            mapArgs["-staking"] = oldStaking;
+        else
+            mapArgs.erase("-staking");
+    }
+};
+} // namespace
 
 BOOST_FIXTURE_TEST_SUITE(rpc_wallet_tests, WalletTestingSetup)
 
@@ -64,6 +103,8 @@ BOOST_AUTO_TEST_CASE(rpc_addmultisig)
 
 BOOST_AUTO_TEST_CASE(rpc_wallet)
 {
+    ScopedWalletAccountRpcSettings accountRpcSettings;
+
     // Test RPC calls for various wallet statistics
     UniValue r;
     CPubKey demoPubkey;
@@ -71,6 +112,7 @@ BOOST_AUTO_TEST_CASE(rpc_wallet)
     UniValue retValue;
     string strAccount = "walletDemoAccount";
     CTxDestination setaccountDemoAddress;
+    CTxDestination externalAddress;
     {
         LOCK(pwalletMain->cs_wallet);
 
@@ -87,13 +129,17 @@ BOOST_AUTO_TEST_CASE(rpc_wallet)
 
         CPubKey setaccountDemoPubkey = pwalletMain->GenerateNewKey();
         setaccountDemoAddress = CTxDestination(setaccountDemoPubkey.GetID());
+
+        CKey externalKey;
+        externalKey.MakeNewKey(true);
+        externalAddress = CTxDestination(externalKey.GetPubKey().GetID());
     }
     /*********************************
      * 			setaccount
      *********************************/
     BOOST_CHECK_NO_THROW(CallRPC("setaccount " + EncodeDestination(setaccountDemoAddress) + " nullaccount"));
-    /* 1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XZ is not owned by the test wallet. */
-    BOOST_CHECK_THROW(CallRPC("setaccount 1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XZ nullaccount"), runtime_error);
+    /* A valid OduwaCoin address not owned by the test wallet must be rejected. */
+    BOOST_CHECK_THROW(CallRPC("setaccount " + EncodeDestination(externalAddress) + " nullaccount"), runtime_error);
     BOOST_CHECK_THROW(CallRPC("setaccount"), runtime_error);
     /* 1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4X (33 chars) is an illegal address (should be 34 chars) */
     BOOST_CHECK_THROW(CallRPC("setaccount 1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4X nullaccount"), runtime_error);
@@ -195,16 +241,16 @@ BOOST_AUTO_TEST_CASE(rpc_wallet)
      *********************************/
     BOOST_CHECK_NO_THROW(retValue = CallRPC("signmessage " + EncodeDestination(demoAddress) + " mymessage"));
     BOOST_CHECK_THROW(CallRPC("signmessage"), runtime_error);
-    /* Should throw error because this address is not loaded in the wallet */
-    BOOST_CHECK_THROW(CallRPC("signmessage 1QFqqMUD55ZV3PJEJZtaKCsQmjLT6JkjvJ mymessage"), runtime_error);
+    /* Should throw because this valid OduwaCoin address is not loaded in the wallet. */
+    BOOST_CHECK_THROW(CallRPC("signmessage " + EncodeDestination(externalAddress) + " mymessage"), runtime_error);
 
     /* missing arguments */
     BOOST_CHECK_THROW(CallRPC("verifymessage " + EncodeDestination(demoAddress)), runtime_error);
     BOOST_CHECK_THROW(CallRPC("verifymessage " + EncodeDestination(demoAddress) + " " + retValue.get_str()), runtime_error);
     /* Illegal address */
     BOOST_CHECK_THROW(CallRPC("verifymessage 1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4X " + retValue.get_str() + " mymessage"), runtime_error);
-    /* wrong address */
-    BOOST_CHECK(CallRPC("verifymessage 1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XZ " + retValue.get_str() + " mymessage").get_bool() == false);
+    /* Valid but wrong address. */
+    BOOST_CHECK(CallRPC("verifymessage " + EncodeDestination(externalAddress) + " " + retValue.get_str() + " mymessage").get_bool() == false);
     /* Correct address and signature but wrong message */
     BOOST_CHECK(CallRPC("verifymessage " + EncodeDestination(demoAddress) + " " + retValue.get_str() + " wrongmessage").get_bool() == false);
     /* Correct address, message and signature*/
