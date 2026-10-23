@@ -10,6 +10,7 @@
 #include "main.h"
 #include "miner.h"
 #include "pubkey.h"
+#include "pow.h"
 #include "script/standard.h"
 #include "txmempool.h"
 #include "uint256.h"
@@ -20,7 +21,12 @@
 
 #include <boost/test/unit_test.hpp>
 
-BOOST_FIXTURE_TEST_SUITE(miner_tests, TestingSetup)
+struct MinerTestingSetup : public TestingSetup
+{
+    MinerTestingSetup() : TestingSetup(CBaseChainParams::REGTEST) {}
+};
+
+BOOST_FIXTURE_TEST_SUITE(miner_tests, MinerTestingSetup)
 
 static
 struct {
@@ -83,6 +89,7 @@ void TestPackageSelection(const CChainParams& chainparams, CScript scriptPubKey,
     // Test that a medium fee transaction will be selected after a higher fee
     // rate package with a low fee rate parent.
     CMutableTransaction tx;
+    tx.nTime = txFirst[0]->nTime;
     tx.vin.resize(1);
     tx.vin[0].scriptSig = CScript() << OP_1;
     tx.vin[0].prevout.hash = txFirst[0]->GetHash();
@@ -182,7 +189,7 @@ void TestPackageSelection(const CChainParams& chainparams, CScript scriptPubKey,
 BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
 {
     // Note that by default, these tests run with size accounting enabled.
-    const CChainParams& chainparams = Params(CBaseChainParams::MAIN);
+    const CChainParams& chainparams = Params(CBaseChainParams::REGTEST);
     CScript scriptPubKey = CScript() << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5f") << OP_CHECKSIG;
     CBlockTemplate *pblocktemplate;
     CMutableTransaction tx,tx2;
@@ -210,7 +217,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
         pblock->nTime = chainActive.Tip()->GetPastTimeLimit()+1;
         CMutableTransaction txCoinbase(pblock->vtx[0]);
         txCoinbase.nVersion = 1;
-        txCoinbase.nTime = 0;
+        txCoinbase.nTime = pblock->nTime;
         txCoinbase.vin[0].scriptSig = CScript();
         txCoinbase.vin[0].scriptSig.push_back(blockinfo[i].extranonce);
         txCoinbase.vin[0].scriptSig.push_back(chainActive.Height());
@@ -223,12 +230,17 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
             txFirst.push_back(new CTransaction(pblock->vtx[0]));
         pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
         pblock->nNonce = blockinfo[i].nonce;
+        while (!CheckProofOfWork(pblock->GetHash(), pblock->nBits, chainparams.GetConsensus()))
+            ++pblock->nNonce;
         CValidationState state;
         BOOST_CHECK_MESSAGE(ProcessNewBlock(state, chainparams, NULL, pblock, true, NULL, false), state.GetRejectReason());
         BOOST_CHECK_MESSAGE(state.IsValid(), state.GetRejectReason());
         pblock->hashPrevBlock = pblock->GetHash();
     }
 
+    // Keep spends timestamped at or after their synthetic coinbase inputs.
+    tx.nTime = txFirst[0]->nTime;
+    tx2.nTime = tx.nTime;
 
     delete pblocktemplate;
 
