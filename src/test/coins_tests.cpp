@@ -242,7 +242,7 @@ BOOST_AUTO_TEST_CASE(updatecoins_simulation_test)
             CMutableTransaction tx;
             tx.vin.resize(1);
             tx.vout.resize(1);
-            tx.vout[0].nValue = i; //Keep txs unique unless intended to duplicate
+            tx.vout[0].nValue = i + 1; // Keep outputs spendable and txs unique unless intentionally duplicated
             unsigned int height = insecure_rand();
 
             // 1/10 times create a coinbase
