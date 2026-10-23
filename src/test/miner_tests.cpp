@@ -224,8 +224,8 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
         pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
         pblock->nNonce = blockinfo[i].nonce;
         CValidationState state;
-        BOOST_CHECK(ProcessNewBlock(state, chainparams, NULL, pblock, true, NULL, false));
-        BOOST_CHECK(state.IsValid());
+        BOOST_CHECK_MESSAGE(ProcessNewBlock(state, chainparams, NULL, pblock, true, NULL, false), state.GetRejectReason());
+        BOOST_CHECK_MESSAGE(state.IsValid(), state.GetRejectReason());
         pblock->hashPrevBlock = pblock->GetHash();
     }
 
