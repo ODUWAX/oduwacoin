@@ -10,6 +10,7 @@
 #include "main.h"
 #include "miner.h"
 #include "pubkey.h"
+#include "pow.h"
 #include "script/standard.h"
 #include "txmempool.h"
 #include "uint256.h"
@@ -224,6 +225,8 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
             txFirst.push_back(new CTransaction(pblock->vtx[0]));
         pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
         pblock->nNonce = blockinfo[i].nonce;
+        while (!CheckProofOfWork(pblock->GetHash(), pblock->nBits, chainparams.GetConsensus()))
+            ++pblock->nNonce;
         CValidationState state;
         BOOST_CHECK(ProcessNewBlock(state, chainparams, NULL, pblock, true, NULL, false));
         BOOST_CHECK(state.IsValid());
