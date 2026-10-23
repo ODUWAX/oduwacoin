@@ -236,10 +236,10 @@ public:
 
 		nPruneAfterHeight = 1000;
 
-		genesis = CreateGenesisBlock(1393221600, 216178, 0x1f00ffff, 1, 0);
+		genesis = CreateGenesisBlock(1393221600, 10638, 0x1f00ffff, 1, 0);
 		consensus.hashGenesisBlock = genesis.GetHash();
-		//assert(consensus.hashGenesisBlock == uint256S("0x0000724595fb3b9609d441cbfb9577615c292abf07d996d3edabc48de843642d"));
-		//assert(genesis.hashMerkleRoot == uint256S("0x12630d16a97f24b287c8c2594dda5fb98c9e6c70fc61d44191931ea2aa08dc90"));
+		assert(consensus.hashGenesisBlock == uint256S("0x0000021247145476150e90f5f26a564d1cde771bd3e3b1493b8e6929b68f5d68"));
+		assert(genesis.hashMerkleRoot == uint256S("0xbda2cd7e8f622f435d4dc917f3a5cfc7f84bb322bd609bbcc667c0f7891eb3dc"));
 
 		vFixedSeeds.clear();
 		vSeeds.clear();
