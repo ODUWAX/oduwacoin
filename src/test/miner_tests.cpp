@@ -94,6 +94,7 @@ void TestPackageSelection(const CChainParams& chainparams, CScript scriptPubKey,
     // Test that a medium fee transaction will be selected after a higher fee
     // rate package with a low fee rate parent.
     CMutableTransaction tx;
+    tx.nTime = txFirst[0]->nTime;
     tx.vin.resize(1);
     tx.vin[0].scriptSig = CScript() << OP_1;
     tx.vin[0].prevout.hash = txFirst[0]->GetHash();
@@ -249,6 +250,10 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
         delete pblocktemplate;
     }
     BOOST_REQUIRE_EQUAL(txFirst.size(), 4U);
+
+    // Keep spends timestamped at or after the synthetic coinbase inputs.
+    tx.nTime = txFirst[0]->nTime;
+    tx2.nTime = tx.nTime;
 
     // Just to make sure we can still make simple blocks
     BOOST_CHECK(pblocktemplate = BlockAssembler(chainparams).CreateNewBlock(scriptPubKey));
