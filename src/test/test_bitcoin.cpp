@@ -8,11 +8,13 @@
 
 #include "chainparams.h"
 #include "consensus/consensus.h"
+#include "consensus/merkle.h"
 #include "consensus/validation.h"
 #include "key.h"
 #include "main.h"
 #include "miner.h"
 #include "pubkey.h"
+#include "pow.h"
 #include "random.h"
 #include "txdb.h"
 #include "txmempool.h"
@@ -117,25 +119,48 @@ CBlock
 TestChain100Setup::CreateAndProcessBlock(const std::vector<CMutableTransaction>& txns, const CScript& scriptPubKey)
 {
     const CChainParams& chainparams = Params();
-    CBlockTemplate *pblocktemplate = BlockAssembler(chainparams).CreateNewBlock(scriptPubKey);
-    CBlock& block = pblocktemplate->block;
+    CBlockIndex* pindexPrev = chainActive.Tip();
+    BOOST_REQUIRE(pindexPrev != NULL);
 
-    // Replace mempool-selected txns with just coinbase plus passed-in txns:
-    block.vtx.resize(1);
+    // Build fixture blocks directly instead of calling CreateNewBlock().
+    // The legacy production TestBlockValidity() path creates a temporary
+    // CBlockIndex without phashBlock; this test fixture must not depend on it.
+    // ProcessNewBlock() below still applies the real consensus validation.
+    CBlock block;
+    block.nVersion = 6;
+    block.hashPrevBlock = pindexPrev->GetBlockHash();
+    block.nTime = pindexPrev->GetPastTimeLimit() + 1;
+    BOOST_FOREACH(const CMutableTransaction& tx, txns) {
+        if (block.nTime < tx.nTime)
+            block.nTime = tx.nTime;
+    }
+    block.nBits = GetNextTargetRequired(pindexPrev, &block, chainparams.GetConsensus(), false);
+    block.nNonce = 0;
+
+    CMutableTransaction coinbaseTx;
+    coinbaseTx.nTime = block.nTime;
+    coinbaseTx.vin.resize(1);
+    coinbaseTx.vin[0].prevout.SetNull();
+    coinbaseTx.vin[0].scriptSig = CScript() << (pindexPrev->nHeight + 1) << OP_0;
+    coinbaseTx.vout.resize(1);
+    coinbaseTx.vout[0].scriptPubKey = scriptPubKey;
+    coinbaseTx.vout[0].nValue = GetProofOfWorkSubsidy(pindexPrev->nHeight + 1, 0);
+    block.vtx.push_back(CTransaction(coinbaseTx));
+
     BOOST_FOREACH(const CMutableTransaction& tx, txns)
-        block.vtx.push_back(tx);
-    // IncrementExtraNonce creates a valid coinbase and merkleRoot
-    unsigned int extraNonce = 0;
-    IncrementExtraNonce(&block, chainActive.Tip(), extraNonce);
+        block.vtx.push_back(CTransaction(tx));
 
-    while (!CheckProofOfWork(block.GetHash(), block.nBits, chainparams.GetConsensus())) ++block.nNonce;
+    block.hashMerkleRoot = BlockMerkleRoot(block);
+    while (!CheckProofOfWork(block.GetPoWHash(), block.nBits, chainparams.GetConsensus()))
+        ++block.nNonce;
 
     CValidationState state;
-    ProcessNewBlock(state, chainparams, NULL, &block, true, NULL, false);
+    BOOST_REQUIRE_MESSAGE(
+        ProcessNewBlock(state, chainparams, NULL, &block, true, NULL, false),
+        state.GetRejectReason());
+    BOOST_REQUIRE_MESSAGE(state.IsValid(), state.GetRejectReason());
 
-    CBlock result = block;
-    delete pblocktemplate;
-    return result;
+    return block;
 }
 
 TestChain100Setup::~TestChain100Setup()
