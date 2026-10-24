@@ -48,6 +48,18 @@ BasicTestingSetup::~BasicTestingSetup()
 
 TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(chainName)
 {
+    // The legacy production regtest genesis does not satisfy its configured
+    // proof-of-work target. Keep production chain parameters untouched, but
+    // use the known-valid nonce inside the unit-test process so fixtures can
+    // initialize an active regtest chain deterministically.
+    if (chainName == CBaseChainParams::REGTEST) {
+        CChainParams& regtest = Params(chainName);
+        CBlock& genesis = const_cast<CBlock&>(regtest.GenesisBlock());
+        Consensus::Params& consensus = const_cast<Consensus::Params&>(regtest.GetConsensus());
+        genesis.nNonce = 10638;
+        consensus.hashGenesisBlock = genesis.GetHash();
+    }
+
     const CChainParams& chainparams = Params();
         // Ideally we'd move all the RPC tests to the functional testing framework
         // instead of unit tests, but for now we need these here.
