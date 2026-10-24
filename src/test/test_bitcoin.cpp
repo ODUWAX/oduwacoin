@@ -173,9 +173,6 @@ TestChain100Setup::CreateAndProcessBlock(const std::vector<CMutableTransaction>&
         uint64_t stakeModifier = 0;
         bool generatedStakeModifier = false;
         BOOST_REQUIRE_MESSAGE(
-            pindexPrev->GeneratedStakeModifier(),
-            "previous block has no generated stake modifier at height " << pindexPrev->nHeight);
-        BOOST_REQUIRE_MESSAGE(
             ComputeNextStakeModifier(pindexPrev, stakeModifier, generatedStakeModifier),
             "ComputeNextStakeModifier failed at height " << pindexPrev->nHeight);
 
@@ -187,7 +184,7 @@ TestChain100Setup::CreateAndProcessBlock(const std::vector<CMutableTransaction>&
         indexDummy.nHeight = pindexPrev->nHeight + 1;
         BOOST_REQUIRE_MESSAGE(
             ConnectBlock(block, checkState, &indexDummy, viewNew, chainparams, true),
-            "ConnectBlock: " << FormatStateMessage(checkState));
+            "ConnectBlock at height " << (pindexPrev->nHeight + 1) << ": " << FormatStateMessage(checkState));
     }
 
     CValidationState state;
