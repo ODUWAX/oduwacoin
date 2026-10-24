@@ -350,6 +350,6 @@ jobs:
               print("Failing suites:")
               for suite in failures:
                   print(f" - {suite}")
-              print("::warning::Legacy unit-test debt detected; see GitHub issue #8 for the tracked repair list.")
-              sys.exit(0)
+              print(f"::error::{len(failures)} unit-test suite(s) failed: {', '.join(failures)}")
+              sys.exit(1)
           PY
