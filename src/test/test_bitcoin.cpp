@@ -154,11 +154,37 @@ TestChain100Setup::CreateAndProcessBlock(const std::vector<CMutableTransaction>&
     while (!CheckProofOfWork(block.GetPoWHash(), block.nBits, chainparams.GetConsensus()))
         ++block.nNonce;
 
+    // Diagnose fixture validity in the test harness before submitting it to
+    // ProcessNewBlock(). This mirrors TestBlockValidity(), but supplies the
+    // temporary block-index hash locally instead of changing production code.
+    {
+        CValidationState checkState;
+        BOOST_REQUIRE_MESSAGE(
+            ContextualCheckBlockHeader(block, checkState, chainparams.GetConsensus(), pindexPrev),
+            "ContextualCheckBlockHeader: " << FormatStateMessage(checkState));
+        BOOST_REQUIRE_MESSAGE(
+            CheckBlock(block, checkState, chainparams.GetConsensus(), true, true),
+            "CheckBlock: " << FormatStateMessage(checkState));
+        BOOST_REQUIRE_MESSAGE(
+            ContextualCheckBlock(block, checkState, pindexPrev),
+            "ContextualCheckBlock: " << FormatStateMessage(checkState));
+
+        CCoinsViewCache viewNew(pcoinsTip);
+        CBlockIndex indexDummy(block);
+        uint256 hashDummy = block.GetHash();
+        indexDummy.phashBlock = &hashDummy;
+        indexDummy.pprev = pindexPrev;
+        indexDummy.nHeight = pindexPrev->nHeight + 1;
+        BOOST_REQUIRE_MESSAGE(
+            ConnectBlock(block, checkState, &indexDummy, viewNew, chainparams, true),
+            "ConnectBlock: " << FormatStateMessage(checkState));
+    }
+
     CValidationState state;
     BOOST_REQUIRE_MESSAGE(
         ProcessNewBlock(state, chainparams, NULL, &block, true, NULL, false),
-        state.GetRejectReason());
-    BOOST_REQUIRE_MESSAGE(state.IsValid(), state.GetRejectReason());
+        "ProcessNewBlock: " << FormatStateMessage(state));
+    BOOST_REQUIRE_MESSAGE(state.IsValid(), "ProcessNewBlock state: " << FormatStateMessage(state));
 
     return block;
 }
