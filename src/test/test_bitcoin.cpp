@@ -8,11 +8,13 @@
 
 #include "chainparams.h"
 #include "consensus/consensus.h"
+#include "consensus/merkle.h"
 #include "consensus/validation.h"
 #include "key.h"
 #include "main.h"
 #include "miner.h"
 #include "pubkey.h"
+#include "pow.h"
 #include "random.h"
 #include "txdb.h"
 #include "txmempool.h"
@@ -48,6 +50,18 @@ BasicTestingSetup::~BasicTestingSetup()
 
 TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(chainName)
 {
+    // The legacy production regtest genesis does not satisfy its configured
+    // proof-of-work target. Keep production chain parameters untouched, but
+    // use the known-valid nonce inside the unit-test process so fixtures can
+    // initialize an active regtest chain deterministically.
+    if (chainName == CBaseChainParams::REGTEST) {
+        CChainParams& regtest = Params(chainName);
+        CBlock& genesis = const_cast<CBlock&>(regtest.GenesisBlock());
+        Consensus::Params& consensus = const_cast<Consensus::Params&>(regtest.GetConsensus());
+        genesis.nNonce = 10638;
+        consensus.hashGenesisBlock = genesis.GetHash();
+    }
+
     const CChainParams& chainparams = Params();
         // Ideally we'd move all the RPC tests to the functional testing framework
         // instead of unit tests, but for now we need these here.
@@ -93,6 +107,10 @@ TestChain100Setup::TestChain100Setup() : TestingSetup(CBaseChainParams::REGTEST)
     {
         std::vector<CMutableTransaction> noTxns;
         CBlock b = CreateAndProcessBlock(noTxns, scriptPubKey);
+        // Setup blocks must connect; callers of CreateAndProcessBlock() may
+        // intentionally submit invalid blocks, so the strict check lives here.
+        BOOST_REQUIRE_MESSAGE(chainActive.Tip()->GetBlockHash() == b.GetHash(),
+                              "TestChain100Setup block failed to connect");
         coinbaseTxns.push_back(b.vtx[0]);
     }
 }
@@ -105,25 +123,47 @@ CBlock
 TestChain100Setup::CreateAndProcessBlock(const std::vector<CMutableTransaction>& txns, const CScript& scriptPubKey)
 {
     const CChainParams& chainparams = Params();
-    CBlockTemplate *pblocktemplate = BlockAssembler(chainparams).CreateNewBlock(scriptPubKey);
-    CBlock& block = pblocktemplate->block;
+    CBlockIndex* pindexPrev = chainActive.Tip();
+    BOOST_REQUIRE(pindexPrev != NULL);
 
-    // Replace mempool-selected txns with just coinbase plus passed-in txns:
-    block.vtx.resize(1);
+    // Build fixture blocks directly instead of calling CreateNewBlock().
+    // The legacy production TestBlockValidity() path creates a temporary
+    // CBlockIndex without phashBlock; this test fixture must not depend on it.
+    // ProcessNewBlock() below still applies the real consensus validation.
+    CBlock block;
+    block.nVersion = 6;
+    block.hashPrevBlock = pindexPrev->GetBlockHash();
+    block.nTime = pindexPrev->GetPastTimeLimit() + 1;
+    BOOST_FOREACH(const CMutableTransaction& tx, txns) {
+        if (block.nTime < tx.nTime)
+            block.nTime = tx.nTime;
+    }
+    block.nBits = GetNextTargetRequired(pindexPrev, &block, chainparams.GetConsensus(), false);
+    block.nNonce = 0;
+
+    CMutableTransaction coinbaseTx;
+    coinbaseTx.nTime = block.nTime;
+    coinbaseTx.vin.resize(1);
+    coinbaseTx.vin[0].prevout.SetNull();
+    coinbaseTx.vin[0].scriptSig = CScript() << (pindexPrev->nHeight + 1) << OP_0;
+    coinbaseTx.vout.resize(1);
+    coinbaseTx.vout[0].scriptPubKey = scriptPubKey;
+    coinbaseTx.vout[0].nValue = GetProofOfWorkSubsidy(pindexPrev->nHeight + 1, 0);
+    block.vtx.push_back(CTransaction(coinbaseTx));
+
     BOOST_FOREACH(const CMutableTransaction& tx, txns)
-        block.vtx.push_back(tx);
-    // IncrementExtraNonce creates a valid coinbase and merkleRoot
-    unsigned int extraNonce = 0;
-    IncrementExtraNonce(&block, chainActive.Tip(), extraNonce);
+        block.vtx.push_back(CTransaction(tx));
 
-    while (!CheckProofOfWork(block.GetHash(), block.nBits, chainparams.GetConsensus())) ++block.nNonce;
+    block.hashMerkleRoot = BlockMerkleRoot(block);
+    while (!CheckProofOfWork(block.GetPoWHash(), block.nBits, chainparams.GetConsensus()))
+        ++block.nNonce;
 
+    // Do not require acceptance here: some tests (e.g. tx_validationcache_tests)
+    // deliberately submit invalid blocks and assert on the resulting chain tip.
     CValidationState state;
     ProcessNewBlock(state, chainparams, NULL, &block, true, NULL, false);
 
-    CBlock result = block;
-    delete pblocktemplate;
-    return result;
+    return block;
 }
 
 TestChain100Setup::~TestChain100Setup()
