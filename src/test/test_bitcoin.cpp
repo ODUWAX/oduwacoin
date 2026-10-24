@@ -15,6 +15,7 @@
 #include "miner.h"
 #include "pubkey.h"
 #include "pow.h"
+#include "pos.h"
 #include "random.h"
 #include "txdb.h"
 #include "txmempool.h"
@@ -168,6 +169,15 @@ TestChain100Setup::CreateAndProcessBlock(const std::vector<CMutableTransaction>&
         BOOST_REQUIRE_MESSAGE(
             ContextualCheckBlock(block, checkState, pindexPrev),
             "ContextualCheckBlock: " << FormatStateMessage(checkState));
+
+        uint64_t stakeModifier = 0;
+        bool generatedStakeModifier = false;
+        BOOST_REQUIRE_MESSAGE(
+            pindexPrev->GeneratedStakeModifier(),
+            "previous block has no generated stake modifier at height " << pindexPrev->nHeight);
+        BOOST_REQUIRE_MESSAGE(
+            ComputeNextStakeModifier(pindexPrev, stakeModifier, generatedStakeModifier),
+            "ComputeNextStakeModifier failed at height " << pindexPrev->nHeight);
 
         CCoinsViewCache viewNew(pcoinsTip);
         CBlockIndex indexDummy(block);
