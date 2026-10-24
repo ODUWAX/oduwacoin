@@ -15,7 +15,6 @@
 #include "miner.h"
 #include "pubkey.h"
 #include "pow.h"
-#include "pos.h"
 #include "random.h"
 #include "txdb.h"
 #include "txmempool.h"
@@ -108,6 +107,10 @@ TestChain100Setup::TestChain100Setup() : TestingSetup(CBaseChainParams::REGTEST)
     {
         std::vector<CMutableTransaction> noTxns;
         CBlock b = CreateAndProcessBlock(noTxns, scriptPubKey);
+        // Setup blocks must connect; callers of CreateAndProcessBlock() may
+        // intentionally submit invalid blocks, so the strict check lives here.
+        BOOST_REQUIRE_MESSAGE(chainActive.Tip()->GetBlockHash() == b.GetHash(),
+                              "TestChain100Setup block failed to connect");
         coinbaseTxns.push_back(b.vtx[0]);
     }
 }
@@ -155,43 +158,10 @@ TestChain100Setup::CreateAndProcessBlock(const std::vector<CMutableTransaction>&
     while (!CheckProofOfWork(block.GetPoWHash(), block.nBits, chainparams.GetConsensus()))
         ++block.nNonce;
 
-    // Diagnose fixture validity in the test harness before submitting it to
-    // ProcessNewBlock(). This mirrors TestBlockValidity(), but supplies the
-    // temporary block-index hash locally instead of changing production code.
-    {
-        CValidationState checkState;
-        BOOST_REQUIRE_MESSAGE(
-            ContextualCheckBlockHeader(block, checkState, chainparams.GetConsensus(), pindexPrev),
-            "ContextualCheckBlockHeader: " << FormatStateMessage(checkState));
-        BOOST_REQUIRE_MESSAGE(
-            CheckBlock(block, checkState, chainparams.GetConsensus(), true, true),
-            "CheckBlock: " << FormatStateMessage(checkState));
-        BOOST_REQUIRE_MESSAGE(
-            ContextualCheckBlock(block, checkState, pindexPrev),
-            "ContextualCheckBlock: " << FormatStateMessage(checkState));
-
-        uint64_t stakeModifier = 0;
-        bool generatedStakeModifier = false;
-        BOOST_REQUIRE_MESSAGE(
-            ComputeNextStakeModifier(pindexPrev, stakeModifier, generatedStakeModifier),
-            "ComputeNextStakeModifier failed at height " << pindexPrev->nHeight);
-
-        CCoinsViewCache viewNew(pcoinsTip);
-        CBlockIndex indexDummy(block);
-        uint256 hashDummy = block.GetHash();
-        indexDummy.phashBlock = &hashDummy;
-        indexDummy.pprev = pindexPrev;
-        indexDummy.nHeight = pindexPrev->nHeight + 1;
-        BOOST_REQUIRE_MESSAGE(
-            ConnectBlock(block, checkState, &indexDummy, viewNew, chainparams, true),
-            "ConnectBlock at height " << (pindexPrev->nHeight + 1) << ": " << FormatStateMessage(checkState));
-    }
-
+    // Do not require acceptance here: some tests (e.g. tx_validationcache_tests)
+    // deliberately submit invalid blocks and assert on the resulting chain tip.
     CValidationState state;
-    BOOST_REQUIRE_MESSAGE(
-        ProcessNewBlock(state, chainparams, NULL, &block, true, NULL, false),
-        "ProcessNewBlock: " << FormatStateMessage(state));
-    BOOST_REQUIRE_MESSAGE(state.IsValid(), "ProcessNewBlock state: " << FormatStateMessage(state));
+    ProcessNewBlock(state, chainparams, NULL, &block, true, NULL, false);
 
     return block;
 }
