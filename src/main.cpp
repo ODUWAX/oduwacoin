@@ -4079,8 +4079,6 @@ bool TestBlockValidity(CValidationState& state, const CChainParams& chainparams,
 
 	CCoinsViewCache viewNew(pcoinsTip);
 	CBlockIndex indexDummy(block);
-	uint256 hashDummy = block.GetHash();
-	indexDummy.phashBlock = &hashDummy;
 	indexDummy.pprev = pindexPrev;
 	indexDummy.nHeight = pindexPrev->nHeight + 1;
 
