@@ -138,16 +138,14 @@ static void TestDecrypt(const CCrypter& crypt, const std::vector<unsigned char>&
     result2 = OldDecrypt(vchCiphertext, vchDecrypted2, crypt.chKey, crypt.chIV);
     BOOST_CHECK(result1 == result2);
 
-    // These two should be equal. However, OpenSSL 1.0.1j introduced a change
-    // that would zero all padding except for the last byte for failed decrypts.
-    // This behavior was reverted for 1.0.1k.
-    if (vchDecrypted1 != vchDecrypted2 && vchDecrypted1.size() >= AES_BLOCK_SIZE && SSLeay() == 0x100010afL)
-    {
-        for(CKeyingMaterial::iterator it = vchDecrypted1.end() - AES_BLOCK_SIZE; it != vchDecrypted1.end() - 1; it++)
-            *it = 0;
+    // Only compare the plaintext of successful decrypts. After a failed
+    // decrypt (bad padding) the output buffer is unspecified scratch data:
+    // CCrypter::Decrypt() returns false and callers discard it, and OpenSSL
+    // versions differ in how they fill it (1.0.1j and 3.x zero parts of the
+    // final block). Success/failure itself is still compared above.
+    if (result1) {
+        BOOST_CHECK_MESSAGE(vchDecrypted1 == vchDecrypted2, HexStr(vchDecrypted1.begin(), vchDecrypted1.end()) + " != " + HexStr(vchDecrypted2.begin(), vchDecrypted2.end()));
     }
-
-    BOOST_CHECK_MESSAGE(vchDecrypted1 == vchDecrypted2, HexStr(vchDecrypted1.begin(), vchDecrypted1.end()) + " != " + HexStr(vchDecrypted2.begin(), vchDecrypted2.end()));
 
     if (vchPlaintext.size())
         BOOST_CHECK(CKeyingMaterial(vchPlaintext.begin(), vchPlaintext.end()) == vchDecrypted2);

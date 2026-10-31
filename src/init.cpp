@@ -1524,7 +1524,7 @@ bool AppInit2(Config& config, boost::thread_group& threadGroup, CScheduler& sche
 		while (!fHaveGenesis) {
 			condvar_GenesisWait.wait(lock);
 		}
-		uiInterface.NotifyBlockTip.disconnect(BlockNotifyGenesisWait);
+		uiInterface.NotifyBlockTip.disconnect(&BlockNotifyGenesisWait);
 	}
 
 	// ********************************************************* Step 11: start node

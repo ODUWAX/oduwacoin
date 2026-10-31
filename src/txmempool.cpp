@@ -784,7 +784,7 @@ namespace {
 class DepthAndScoreComparator
 {
 public:
-    bool operator()(const CTxMemPool::indexed_transaction_set::const_iterator& a, const CTxMemPool::indexed_transaction_set::const_iterator& b)
+    bool operator()(const CTxMemPool::indexed_transaction_set::const_iterator& a, const CTxMemPool::indexed_transaction_set::const_iterator& b) const
     {
         uint64_t counta = a->GetCountWithAncestors();
         uint64_t countb = b->GetCountWithAncestors();

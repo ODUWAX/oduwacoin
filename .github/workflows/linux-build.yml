@@ -28,8 +28,21 @@ jobs:
         include:
           - name: Ubuntu 20.04
             image: ubuntu:20.04
+            bdb_packages: libdb-dev libdb++-dev
+            extra_configure: ""
           - name: Ubuntu 22.04
             image: ubuntu:22.04
+            bdb_packages: libdb-dev libdb++-dev
+            extra_configure: ""
+          # Boost >= 1.82 requires a newer C++ standard than the C++11 default.
+          - name: Ubuntu 24.04
+            image: ubuntu:24.04
+            bdb_packages: libdb-dev libdb5.3++-dev
+            extra_configure: --enable-c++17
+          - name: Ubuntu 26.04
+            image: ubuntu:26.04
+            bdb_packages: libdb-dev libdb5.3++-dev
+            extra_configure: --enable-c++17
 
     container:
       image: ${{ matrix.image }}
@@ -53,8 +66,7 @@ jobs:
             bsdmainutils \
             libssl-dev \
             libevent-dev \
-            libdb-dev \
-            libdb++-dev \
+            ${{ matrix.bdb_packages }} \
             libboost-system-dev \
             libboost-filesystem-dev \
             libboost-chrono-dev \
@@ -80,7 +92,8 @@ jobs:
             --without-miniupnpc \
             --disable-zmq \
             --disable-tests \
-            --disable-bench
+            --disable-bench \
+            ${{ matrix.extra_configure }}
 
       - name: Build
         run: make -j2

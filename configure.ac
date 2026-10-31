@@ -1246,7 +1246,24 @@ if test x$use_boost = xyes; then
   if test x$want_boost = xno; then
     AC_MSG_ERROR([[only libbitcoinconsensus can be built without boost]])
   fi
-  AX_BOOST_SYSTEM
+  dnl Boost.System is header-only since Boost 1.69 and newer Boost
+  dnl releases (1.89+) no longer ship a libboost_system stub to link.
+  AC_MSG_CHECKING([whether Boost.System is header-only])
+  TEMP_CPPFLAGS="$CPPFLAGS"
+  CPPFLAGS="$BOOST_CPPFLAGS $CPPFLAGS"
+  AC_PREPROC_IFELSE([AC_LANG_PROGRAM([[
+    #include <boost/version.hpp>
+    #if BOOST_VERSION < 106900
+    #error Boost.System needs to be linked
+    #endif
+  ]])], [boost_system_header_only=yes], [boost_system_header_only=no])
+  CPPFLAGS="$TEMP_CPPFLAGS"
+  AC_MSG_RESULT([$boost_system_header_only])
+  if test x$boost_system_header_only = xyes; then
+    BOOST_SYSTEM_LIB=""
+  else
+    AX_BOOST_SYSTEM
+  fi
   AX_BOOST_FILESYSTEM
   AX_BOOST_PROGRAM_OPTIONS
   AX_BOOST_THREAD

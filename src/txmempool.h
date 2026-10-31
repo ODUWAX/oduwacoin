@@ -702,7 +702,7 @@ typedef std::pair<double, CTxMemPool::txiter> TxCoinAgePriority;
 
 struct TxCoinAgePriorityCompare
 {
-    bool operator()(const TxCoinAgePriority& a, const TxCoinAgePriority& b)
+    bool operator()(const TxCoinAgePriority& a, const TxCoinAgePriority& b) const
     {
         if (a.first == b.first)
             return CompareTxMemPoolEntryByScore()(*(b.second), *(a.second)); //Reverse order to make sort less than
