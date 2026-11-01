@@ -79,9 +79,11 @@ jobs:
         run: |
           python3 - <<'PY'
           import re, subprocess, sys
-          exe = "src/test/test_oduwacoin"
-          out = subprocess.run([exe, "--list_content"], capture_output=True, text=True)
-          suites = sorted({m.group(1) for m in re.finditer(r"^(\w+)\*?$", out.stdout + out.stderr, re.M)})
+          exe = "src/test/test_bitcoin"
+          out = subprocess.run([exe, "--list_content"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+          # Top-level enabled suites are unindented lines ending in "*".
+          suites = [l.strip().rstrip("*") for l in out.stdout.splitlines()
+                    if l and not l[0].isspace() and l.rstrip().endswith("*")]
           failed = []
           for s in suites:
               r = subprocess.run([exe, "--run_test=" + s], capture_output=True, text=True)
