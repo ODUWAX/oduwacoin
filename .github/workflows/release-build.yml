@@ -1,0 +1,310 @@
+name: Release build
+
+# Builds the release binaries for Linux, Windows and macOS (Apple Silicon and
+# Intel) from the pinned dependencies in depends/.
+#
+# - Pull requests that touch the build system run the full build so changes
+#   are tested before merging.
+# - Pushing a tag such as v2.0.0.3 also creates a draft GitHub release with
+#   all assets and a SHA256SUMS file. Drafts are not public until published.
+# - macOS signing and notarization run only when the signing secrets exist.
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+  pull_request:
+    branches:
+      - master
+    paths:
+      - "depends/**"
+      - "build-aux/**"
+      - "configure.ac"
+      - "Makefile.am"
+      - "src/qt/**"
+      - ".github/workflows/release-build.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CONFIGURE_FLAGS: --prefix=/ --enable-c++17 --disable-bench --enable-reduce-exports --without-miniupnpc --disable-zmq
+
+jobs:
+  linux:
+    name: Linux x86_64
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    # Ubuntu 20.04 (glibc 2.31) keeps the binaries runnable on older distributions.
+    container:
+      image: ubuntu:20.04
+    env:
+      DEBIAN_FRONTEND: noninteractive
+      HOST: x86_64-pc-linux-gnu
+
+    steps:
+      - name: Install build tools
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            build-essential libtool autotools-dev automake pkg-config bsdmainutils \
+            python3 curl ca-certificates git bison gperf xz-utils bzip2 patch file
+
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Cache depends
+        uses: actions/cache@v4
+        with:
+          path: |
+            depends/built
+            depends/sources
+          key: depends-${{ env.HOST }}-focal-${{ hashFiles('depends/packages/*', 'depends/patches/**', 'depends/hosts/*', 'depends/builders/*', 'depends/funcs.mk', 'depends/Makefile') }}
+
+      - name: Build dependencies
+        run: make -C depends -j"$(nproc)" HOST="$HOST" NO_UPNP=1 NO_ZMQ=1
+
+      - name: Build OduwaCoin
+        run: |
+          ./autogen.sh
+          CONFIG_SITE="$PWD/depends/$HOST/share/config.site" ./configure $CONFIGURE_FLAGS --enable-tests LDFLAGS=-static-libstdc++
+          make -j"$(nproc)"
+
+      - name: Run core unit tests
+        run: |
+          python3 - <<'PY'
+          import re, subprocess, sys
+          exe = "src/test/test_oduwacoin"
+          out = subprocess.run([exe, "--list_content"], capture_output=True, text=True)
+          suites = sorted({m.group(1) for m in re.finditer(r"^(\w+)\*?$", out.stdout + out.stderr, re.M)})
+          failed = []
+          for s in suites:
+              r = subprocess.run([exe, "--run_test=" + s], capture_output=True, text=True)
+              print(("PASS " if r.returncode == 0 else "FAIL ") + s, flush=True)
+              if r.returncode != 0:
+                  failed.append(s)
+                  print(r.stdout[-4000:], r.stderr[-4000:])
+          print("Passed: %d" % (len(suites) - len(failed)))
+          print("Failed: %d" % len(failed))
+          if not suites or failed:
+              sys.exit(1)
+          PY
+
+      - name: Package
+        run: |
+          VERSION=$(sed -n 's/^PACKAGE_VERSION = //p' Makefile)
+          mkdir -p dist/full dist/daemon
+          for b in src/oduwacoind src/oduwacoin-cli src/oduwacoin-tx src/qt/oduwacoin-qt; do
+            strip -o "dist/full/$(basename "$b")" "$b"
+          done
+          cp dist/full/oduwacoind dist/full/oduwacoin-cli dist/full/oduwacoin-tx dist/daemon/
+          tar -C dist/full -czf "OduwaCoin-$VERSION-linux.tar.gz" .
+          tar -C dist/daemon -czf "OduwaCoin-$VERSION-ubuntu-daemon.tar.gz" .
+          dist/full/oduwacoind -version | head -1
+          file dist/full/oduwacoin-qt
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-linux
+          path: OduwaCoin-*.tar.gz
+          if-no-files-found: error
+
+  windows:
+    name: Windows x86_64
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    container:
+      image: ubuntu:20.04
+    env:
+      DEBIAN_FRONTEND: noninteractive
+      HOST: x86_64-w64-mingw32
+
+    steps:
+      - name: Install build tools
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            build-essential libtool autotools-dev automake pkg-config bsdmainutils \
+            python3 curl ca-certificates git bison gperf xz-utils bzip2 patch zip \
+            g++-mingw-w64-x86-64
+          update-alternatives --set x86_64-w64-mingw32-gcc /usr/bin/x86_64-w64-mingw32-gcc-posix
+          update-alternatives --set x86_64-w64-mingw32-g++ /usr/bin/x86_64-w64-mingw32-g++-posix
+
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Cache depends
+        uses: actions/cache@v4
+        with:
+          path: |
+            depends/built
+            depends/sources
+          key: depends-${{ env.HOST }}-focal-${{ hashFiles('depends/packages/*', 'depends/patches/**', 'depends/hosts/*', 'depends/builders/*', 'depends/funcs.mk', 'depends/Makefile') }}
+
+      - name: Build dependencies
+        run: make -C depends -j"$(nproc)" HOST="$HOST" NO_UPNP=1 NO_ZMQ=1
+
+      - name: Build OduwaCoin
+        run: |
+          ./autogen.sh
+          CONFIG_SITE="$PWD/depends/$HOST/share/config.site" ./configure $CONFIGURE_FLAGS --disable-tests
+          make -j"$(nproc)"
+
+      - name: Package
+        run: |
+          VERSION=$(sed -n 's/^PACKAGE_VERSION = //p' Makefile)
+          mkdir -p dist
+          for b in src/oduwacoind.exe src/oduwacoin-cli.exe src/oduwacoin-tx.exe src/qt/oduwacoin-qt.exe; do
+            x86_64-w64-mingw32-strip -o "dist/$(basename "$b")" "$b"
+          done
+          (cd dist && zip -9 "../OduwaCoin-$VERSION-win64.zip" *.exe)
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-windows
+          path: OduwaCoin-*-win64.zip
+          if-no-files-found: error
+
+  macos:
+    name: macOS ${{ matrix.arch }}
+    # Both architectures build on Apple Silicon; Xcode 15.4 (macOS 14 SDK) is
+    # the SDK Qt 5.15.14 is known to work with.
+    runs-on: macos-14
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            host: aarch64-apple-darwin
+          - arch: x86_64
+            host: x86_64-apple-darwin
+    env:
+      HOST: ${{ matrix.host }}
+      HAVE_SIGNING: ${{ secrets.MACOS_CERT_P12_BASE64 != '' }}
+
+    steps:
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_15.4.app
+
+      - name: Install build tools
+        run: brew install automake libtool pkg-config
+
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Cache depends
+        uses: actions/cache@v4
+        with:
+          path: |
+            depends/built
+            depends/sources
+          key: depends-${{ matrix.host }}-xcode15.4-${{ hashFiles('depends/packages/*', 'depends/patches/**', 'depends/hosts/*', 'depends/builders/*', 'depends/funcs.mk', 'depends/Makefile') }}
+
+      - name: Build dependencies
+        run: make -C depends -j"$(sysctl -n hw.ncpu)" HOST="$HOST" NO_UPNP=1 NO_ZMQ=1
+
+      - name: Build OduwaCoin
+        run: |
+          ./autogen.sh
+          CONFIG_SITE="$PWD/depends/$HOST/share/config.site" ./configure $CONFIGURE_FLAGS --disable-tests
+          make -j"$(sysctl -n hw.ncpu)"
+          make appbundle
+          lipo -info Oduwacoin-Qt.app/Contents/MacOS/Oduwacoin-Qt
+          lipo -info src/oduwacoind
+
+      - name: Sign app
+        if: env.HAVE_SIGNING == 'true'
+        env:
+          MACOS_CERT_P12_BASE64: ${{ secrets.MACOS_CERT_P12_BASE64 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+        run: |
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -hex 16)"
+          echo "$MACOS_CERT_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security import "$RUNNER_TEMP/cert.p12" -P "$MACOS_CERT_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          rm -f "$RUNNER_TEMP/cert.p12"
+          IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN" | sed -n 's/.*"\(Developer ID Application:.*\)"/\1/p' | head -1)
+          test -n "$IDENTITY"
+          echo "SIGN_IDENTITY=$IDENTITY" >> "$GITHUB_ENV"
+          for b in src/oduwacoind src/oduwacoin-cli src/oduwacoin-tx; do
+            codesign --force --options runtime --timestamp --sign "$IDENTITY" "$b"
+          done
+          codesign --force --deep --options runtime --timestamp --sign "$IDENTITY" Oduwacoin-Qt.app
+          codesign --verify --strict --verbose=2 Oduwacoin-Qt.app
+
+      - name: Package
+        run: |
+          VERSION=$(sed -n 's/^PACKAGE_VERSION = //p' Makefile)
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          mkdir -p dmgroot
+          cp -R Oduwacoin-Qt.app dmgroot/
+          ln -s /Applications dmgroot/Applications
+          hdiutil create -volname "OduwaCoin $VERSION" -srcfolder dmgroot -ov -format UDZO "OduwaCoin-$VERSION-macOS-${{ matrix.arch }}.dmg"
+          mkdir -p dist
+          cp src/oduwacoind src/oduwacoin-cli src/oduwacoin-tx dist/
+          tar -C dist -czf "OduwaCoin-$VERSION-macOS-${{ matrix.arch }}-daemon.tar.gz" .
+
+      - name: Notarize
+        if: env.HAVE_SIGNING == 'true'
+        env:
+          APPLE_API_KEY_P8_BASE64: ${{ secrets.APPLE_API_KEY_P8_BASE64 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+        run: |
+          DMG="OduwaCoin-$VERSION-macOS-${{ matrix.arch }}.dmg"
+          codesign --force --timestamp --sign "$SIGN_IDENTITY" "$DMG"
+          echo "$APPLE_API_KEY_P8_BASE64" | base64 --decode > "$RUNNER_TEMP/AuthKey.p8"
+          xcrun notarytool submit "$DMG" --key "$RUNNER_TEMP/AuthKey.p8" --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER_ID" --wait
+          rm -f "$RUNNER_TEMP/AuthKey.p8"
+          xcrun stapler staple "$DMG"
+          spctl --assess --type open --context context:primary-signature --verbose=2 "$DMG"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-macos-${{ matrix.arch }}
+          path: |
+            OduwaCoin-*.dmg
+            OduwaCoin-*-daemon.tar.gz
+          if-no-files-found: error
+
+  draft-release:
+    name: Draft GitHub release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [linux, windows, macos]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: assets
+          merge-multiple: true
+
+      - name: Checksums
+        working-directory: assets
+        run: sha256sum OduwaCoin-* | tee SHA256SUMS
+
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" assets/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --draft \
+            --title "OduwaCoin $GITHUB_REF_NAME ETINOSA" \
+            --notes "Draft release. Edit the notes before publishing."
