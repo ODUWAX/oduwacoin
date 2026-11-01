@@ -106,6 +106,74 @@ jobs:
           src/oduwacoin-cli --version
 
 
+  fedora-daemon-cli:
+    name: ${{ matrix.name }} daemon and CLI
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Fedora 43
+            image: fedora:43
+          - name: Fedora 44
+            image: fedora:44
+
+    container:
+      image: ${{ matrix.image }}
+
+    steps:
+      - name: Install build dependencies
+        run: |
+          dnf install -y --setopt=install_weak_deps=False \
+            git \
+            gcc-c++ \
+            libtool \
+            make \
+            autoconf \
+            automake \
+            python3 \
+            which \
+            findutils \
+            openssl-devel \
+            libevent-devel \
+            boost-devel \
+            libdb-devel \
+            libdb-cxx-devel
+
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Restore required script permissions
+        run: chmod +x share/genbuild.sh
+
+      - name: Generate configure scripts
+        run: bash ./autogen.sh
+
+      # Fedora ships Berkeley DB 5.3 and Boost >= 1.82.
+      - name: Configure legacy daemon and CLI build
+        run: |
+          ./configure \
+            --with-incompatible-bdb \
+            --without-gui \
+            --without-miniupnpc \
+            --disable-zmq \
+            --disable-tests \
+            --disable-bench \
+            --enable-c++17
+
+      - name: Build
+        run: make -j2
+
+      - name: Verify binaries
+        run: |
+          test -x src/oduwacoind
+          test -x src/oduwacoin-cli
+          src/oduwacoind --version
+          src/oduwacoin-cli --version
+
+
   wallet-regression:
     name: Ubuntu 20.04 wallet smoke regression
     runs-on: ubuntu-latest
