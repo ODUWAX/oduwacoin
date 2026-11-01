@@ -63,27 +63,62 @@ tuned to conserve memory with additional CXXFLAGS:
 
 Dependency Build Instructions: Ubuntu & Debian
 ----------------------------------------------
-Build requirements:
+The daemon and CLI are built in CI on Ubuntu 20.04, 22.04, 24.04 and 26.04
+(see [`.github/workflows/linux-build.yml`](../.github/workflows/linux-build.yml)).
+The core unit test suite and the wallet smoke regression run on Ubuntu 20.04.
 
-    sudo apt-get install build-essential libtool autotools-dev automake pkg-config python3 git bsdmainutils libssl-dev libevent-dev libdb-dev libdb++-dev
+Build requirements (all supported releases):
 
-Options when installing required Boost library files:
+    sudo apt-get install build-essential libtool autotools-dev automake pkg-config python3 git bsdmainutils libssl-dev libevent-dev
 
-1. On at least Ubuntu 14.04+ and Debian 7+ there are generic names for the
-individual boost development packages, so the following can be used to only
-install necessary parts of boost:
+Boost libraries (all supported releases):
 
-        sudo apt-get install libboost-system-dev libboost-filesystem-dev libboost-chrono-dev libboost-program-options-dev libboost-test-dev libboost-thread-dev
+    sudo apt-get install libboost-system-dev libboost-filesystem-dev libboost-chrono-dev libboost-program-options-dev libboost-test-dev libboost-thread-dev libboost-random-dev
 
-2. If that doesn't work, you can install all boost development packages with:
+Boost.System is header-only in Boost 1.69 and later. `configure` detects this
+and does not try to link a separate `boost_system` library, so newer Boost
+releases (including 1.90) work without extra flags. `libboost-all-dev` can be
+used instead of the individual packages above if preferred.
 
-        sudo apt-get install libboost-all-dev
+Berkeley DB (wallet support):
+
+| Ubuntu release | Berkeley DB packages              |
+|----------------|-----------------------------------|
+| 20.04, 22.04   | `libdb-dev libdb++-dev`           |
+| 24.04, 26.04   | `libdb-dev libdb5.3++-dev`        |
+
+On Ubuntu 24.04 and later the plain `libdb++-dev` package does not provide the
+C++ headers that configure needs, so install `libdb5.3++-dev` instead.
+
+### Configure flags by release
+
+| Ubuntu release | Default compiler / Boost / OpenSSL | Extra configure flags                    |
+|----------------|------------------------------------|------------------------------------------|
+| 20.04          | GCC 9 / Boost 1.71 / OpenSSL 1.1   | `--with-incompatible-bdb`                |
+| 22.04          | GCC 11 / Boost 1.74 / OpenSSL 3.0  | `--with-incompatible-bdb`                |
+| 24.04          | GCC 13 / Boost 1.83 / OpenSSL 3.0  | `--with-incompatible-bdb --enable-c++17` |
+| 26.04          | GCC 15 / Boost 1.90 / OpenSSL 3.5  | `--with-incompatible-bdb --enable-c++17` |
+
+Boost 1.82 and later require at least C++14, so `--enable-c++17` is required on
+Ubuntu 24.04 and newer (the project otherwise defaults to C++11).
+
+Example daemon/CLI build on Ubuntu 24.04 or 26.04:
+
+```bash
+./autogen.sh
+./configure --with-incompatible-bdb --enable-c++17 --without-gui --without-miniupnpc --disable-zmq
+make -j"$(nproc)"
+```
 
 Berkeley DB 6.2 is the wallet-compatibility target documented for the v2.0.0.2 release line.
 
-Ubuntu and Debian provide `libdb-dev` and `libdb++-dev`, but the packaged Berkeley DB version may differ from the release-wallet build. The public CI workflow therefore uses `--with-incompatible-bdb` only to validate compilation across supported Linux build environments.
+The distribution packages above install Berkeley DB 5.3, which differs from the
+release-wallet build. That is why `--with-incompatible-bdb` is passed; CI uses
+it to validate compilation and tests across supported Linux build environments.
 
-For production wallet portability, use the project-documented Berkeley DB version rather than assuming the distribution package is wallet-compatible.
+For production wallet portability, use the project-documented Berkeley DB
+version (see *Berkeley DB* below) rather than assuming the distribution package
+is wallet-compatible.
 
 The current CI build keeps wallet support enabled because the v2.0.0.2 mining/RPC path still references wallet symbols.
 
@@ -122,7 +157,12 @@ Dependency Build Instructions: Fedora
 -------------------------------------
 Build requirements:
 
-    sudo dnf install gcc-c++ libtool make autoconf automake openssl-devel libevent-devel boost-devel libdb4-devel libdb4-cxx-devel
+    sudo dnf install gcc-c++ libtool make autoconf automake python3 openssl-devel libevent-devel boost-devel libdb-devel libdb-cxx-devel
+
+Current Fedora releases ship Berkeley DB 5.3 (`libdb-devel`, `libdb-cxx-devel`)
+and a recent Boost, so configure with `--with-incompatible-bdb --enable-c++17`.
+The `libdb4-*` packages referenced in older guides no longer exist. Fedora
+builds are not covered by CI.
 
 Optional:
 
