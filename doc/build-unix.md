@@ -2,7 +2,8 @@ UNIX BUILD NOTES
 ====================
 Some notes on how to build OduwaCoin in Unix.
 
-(for OpenBSD specific instructions, see [build-openbsd.md](build-openbsd.md))
+(for OpenBSD specific instructions, see [build-openbsd.md](build-openbsd.md);
+for the portable release binaries built from `depends/`, see [release-builds.md](release-builds.md))
 
 Note
 ---------------------
