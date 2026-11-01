@@ -63,7 +63,8 @@ tuned to conserve memory with additional CXXFLAGS:
 
 Dependency Build Instructions: Ubuntu & Debian
 ----------------------------------------------
-The daemon and CLI are built in CI on Ubuntu 20.04, 22.04, 24.04 and 26.04
+The daemon and CLI are built in CI on Ubuntu 20.04, 22.04, 24.04 and 26.04,
+and on Fedora 43 and 44
 (see [`.github/workflows/linux-build.yml`](../.github/workflows/linux-build.yml)).
 The core unit test suite and the wallet smoke regression run on Ubuntu 20.04.
 
@@ -161,8 +162,8 @@ Build requirements:
 
 Current Fedora releases ship Berkeley DB 5.3 (`libdb-devel`, `libdb-cxx-devel`)
 and a recent Boost, so configure with `--with-incompatible-bdb --enable-c++17`.
-The `libdb4-*` packages referenced in older guides no longer exist. Fedora
-builds are not covered by CI.
+The `libdb4-*` packages referenced in older guides no longer exist. CI builds
+the daemon and CLI on Fedora 43 and 44 with these packages.
 
 Optional:
 
