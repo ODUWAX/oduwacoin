@@ -1,8 +1,8 @@
 package=bdb
-$(package)_version=6.2.38
-$(package)_download_path=https://strawberryperl.com/package/kmx/libs_src/
+$(package)_version=6.2.32
+$(package)_download_path=https://download.oracle.com/berkeley-db
 $(package)_file_name=db-$($(package)_version).tar.gz
-$(package)_sha256_hash=99ccd944ffcccc88c0f404b4f3d8cb10747e1e3dfe9ec566f518725f986ca2fd
+$(package)_sha256_hash=a9c5e2b004a5777aa03510cfe5cd766a4a3b777713406b02809c17c8e0e7a8fb
 $(package)_build_subdir=build_unix
 
 define $(package)_set_vars
