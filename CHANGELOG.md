@@ -1,5 +1,15 @@
 # Changelog
 
+## v2.0.0.3 / ETINOSA (unreleased)
+
+- Modernized release dependencies: OpenSSL 3.5 LTS, Qt 5.15.14, Boost 1.90 and Berkeley DB 6.2.32 (same 6.2 wallet format as v2.0.0.2).
+- Native Apple Silicon (arm64) macOS build alongside Intel macOS, Windows and Linux.
+- Fixed a null block-hash dereference in block template validation (#19).
+- `getnetworkinfo` reports inbound and outbound connection counts separately.
+- Builds on current Linux toolchains (GCC 15, Boost 1.90, OpenSSL 3) and Fedora 43/44.
+- Core unit tests: 54 suites passing in CI; failing tests now fail the build.
+- No consensus or network protocol changes; v2.0.0.2 nodes and wallets remain compatible.
+
 ## v2.0.0.2 / EDOSA (2023-09-18)
 
 - Added the `getstakereport` RPC command for staking reports across multiple time ranges.
