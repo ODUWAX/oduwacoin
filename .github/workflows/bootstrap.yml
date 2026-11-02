@@ -63,6 +63,9 @@ jobs:
           fi
 
       - name: Sync to the network tip
+        id: sync
+        # Leaves time to stop the node and save progress for the next run.
+        timeout-minutes: 290
         run: |
           D="$PWD/node"
           mkdir -p "$D"
@@ -90,8 +93,14 @@ jobs:
           while pgrep -x oduwacoind >/dev/null; do sleep 2; done
           grep -q "Shutdown: done" "$D/debug.log"
 
+      - name: Stop the node if the sync did not finish
+        if: always() && steps.sync.outcome != 'success'
+        run: |
+          bin/oduwacoin-cli -datadir="$PWD/node" stop 2>/dev/null || true
+          for i in $(seq 1 120); do pgrep -x oduwacoind >/dev/null || break; sleep 2; done
+
       - name: Save node data for the next run
-        if: always() && hashFiles('height.txt') != ''
+        if: always() && hashFiles('node/blocks/index/CURRENT') != ''
         uses: actions/cache/save@v4
         with:
           path: node
