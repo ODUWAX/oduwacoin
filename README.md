@@ -1,6 +1,6 @@
 # OduwaCoin Core
 
-**Current public release: v2.0.0.2 / EDOSA**
+**Current public release: v2.0.0.3 / ETINOSA**
 
 OduwaCoin Core is the reference implementation for the OduwaCoin network. OWC is the native currency used by the network.
 
@@ -8,17 +8,17 @@ This repository contains the node, wallet, RPC, networking, staking, and support
 
 ## Current release
 
-Version **2.0.0.2 / EDOSA** includes maintenance and reliability improvements such as:
+Version **2.0.0.3 / ETINOSA** modernizes the wallet and node software:
 
-- `getstakereport` RPC support for staking activity and rewards
-- increased outbound peer connectivity
-- updated secp256k1, UniValue, and LevelDB components
-- Qt and other dependency updates
-- wallet, staking, and network stability improvements carried forward from the IVIE release line
+- signed and Apple-notarized macOS apps, with a native build for Apple Silicon (macOS 11+) and a separate Intel build (macOS 10.15+)
+- OpenSSL 3.5 (replacing end-of-life OpenSSL 1.1.1), Qt 5.15.14, Boost 1.90 and Berkeley DB 6.2
+- Windows 64-bit, Linux desktop and Ubuntu server packages, with SHA-256 checksums for every download
+- a fix for a block-template validation crash, and separate inbound/outbound counts in `getnetworkinfo`
+- no consensus or protocol changes; existing wallets and staking carry over, and v2.0.0.3 nodes run alongside v2.0.0.2
 
 Release downloads and notes:
 
-https://github.com/ODUWAX/oduwacoin/releases/tag/v2.0.0.2
+https://github.com/ODUWAX/oduwacoin/releases/tag/v2.0.0.3
 
 ## Verified blockchain bootstrap
 
