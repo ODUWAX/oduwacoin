@@ -90,14 +90,14 @@ jobs:
           $C getblockcount > height.txt
           $C getbestblockhash > besthash.txt
           $C stop
-          while pgrep -x oduwacoind >/dev/null; do sleep 2; done
+          while pgrep -f "bin/oduwacoind -datadir=" >/dev/null; do sleep 2; done
           grep -q "Shutdown: done" "$D/debug.log"
 
       - name: Stop the node if the sync did not finish
         if: always() && steps.sync.outcome != 'success'
         run: |
           bin/oduwacoin-cli -datadir="$PWD/node" stop 2>/dev/null || true
-          for i in $(seq 1 120); do pgrep -x oduwacoind >/dev/null || break; sleep 2; done
+          for i in $(seq 1 120); do pgrep -f "bin/oduwacoind -datadir=" >/dev/null || break; sleep 2; done
 
       - name: Save node data for the next run
         if: always() && hashFiles('node/blocks/index/CURRENT') != ''
@@ -135,14 +135,14 @@ jobs:
           bin/oduwacoind -datadir="$PWD/check" -daemon -connect=0 -listen=0 -disablewallet
           C="bin/oduwacoin-cli -datadir=$PWD/check"
           until $C getblockcount >/dev/null 2>&1; do
-            pgrep -x oduwacoind >/dev/null || { tail -30 check/debug.log; exit 1; }
+            pgrep -f "bin/oduwacoind -datadir=" >/dev/null || { tail -30 check/debug.log; exit 1; }
             sleep 5
           done
           test "$($C getblockcount)" = "$(cat height.txt)"
           test "$($C getbestblockhash)" = "$(cat besthash.txt)"
           test "$($C verifychain 4 1000)" = "true"
           $C stop
-          while pgrep -x oduwacoind >/dev/null; do sleep 2; done
+          while pgrep -f "bin/oduwacoind -datadir=" >/dev/null; do sleep 2; done
           rm -rf check
 
       - name: Publish
