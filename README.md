@@ -22,19 +22,17 @@ https://github.com/ODUWAX/oduwacoin/releases/tag/v2.0.0.2
 
 ## Verified blockchain bootstrap
 
-A bootstrap archive is available for operators who need to initialize the blockchain database more quickly.
+A verified snapshot of the blockchain lets new nodes and wallets start in minutes instead of syncing from block 0. It is rebuilt automatically twice a week by the [Blockchain bootstrap workflow](.github/workflows/bootstrap.yml) from a cleanly stopped node, then tested offline before it is published. The current block height, build date and SHA-256 are listed on the [bootstrap release page](https://github.com/ODUWAX/oduwacoin/releases/tag/bootstrap).
 
 **Download**
 
-https://bootstrap.oduwacoin.io/OduwaCoin-DB.zip
-
-**SHA-256**
-
-`0a54fb501f8986ee1dcffed18cf7bb12d7d20b3f39a2ba4f8a1018dfd4ec59bb`
+https://github.com/ODUWAX/oduwacoin/releases/download/bootstrap/OduwaCoin-DB.zip
 
 **Checksum file**
 
-https://bootstrap.oduwacoin.io/OduwaCoin-DB.zip.sha256
+https://github.com/ODUWAX/oduwacoin/releases/download/bootstrap/OduwaCoin-DB.zip.sha256
+
+To use it, close OduwaCoin Core completely, delete the `blocks` and `chainstate` folders in your data directory, unzip `OduwaCoin-DB.zip` there, and start OduwaCoin Core again.
 
 Always back up `wallet.dat` and fully stop OduwaCoin Core before replacing blockchain data directories.
 

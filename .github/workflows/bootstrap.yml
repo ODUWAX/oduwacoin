@@ -1,0 +1,182 @@
+name: Blockchain bootstrap
+
+# Builds a clean, verified blockchain bootstrap and publishes it to the
+# "bootstrap" pre-release, so this link always serves the newest one:
+#   https://github.com/ODUWAX/oduwacoin/releases/download/bootstrap/OduwaCoin-DB.zip
+#
+# The node is always stopped cleanly before packaging. Copying a running
+# node's database produced broken snapshots in the past.
+on:
+  schedule:
+    - cron: "17 3 * * 0,3"   # Sunday and Wednesday, 03:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: bootstrap
+  cancel-in-progress: false
+
+env:
+  GH_TOKEN: ${{ github.token }}
+  BOOTSTRAP_TAG: bootstrap
+  # Known-good public nodes; used in addition to the built-in seeds.
+  PEERS: >-
+    134.209.13.43 134.195.198.39 157.230.150.227 91.121.62.2 142.93.143.35
+    68.183.115.49 167.172.121.86 157.230.29.96 159.65.99.102 65.23.154.253 94.9.18.207
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 350
+    steps:
+      - name: Get the latest released daemon
+        run: |
+          tag=$(gh release view -R "$GITHUB_REPOSITORY" --json tagName -q .tagName)
+          echo "Using daemon from $tag"
+          gh release download "$tag" -R "$GITHUB_REPOSITORY" -p '*ubuntu-daemon.tar.gz' -D dl
+          mkdir x bin && tar xzf dl/*ubuntu-daemon.tar.gz -C x
+          for b in oduwacoind oduwacoin-cli; do cp "$(find x -type f -name "$b" | head -1)" bin/; done
+          bin/oduwacoind -version | head -1 | tee daemon-version.txt
+
+      - name: Restore the previous node data
+        id: cache
+        uses: actions/cache/restore@v4
+        with:
+          path: node
+          key: bootstrap-node-${{ github.run_id }}
+          restore-keys: bootstrap-node-
+
+      - name: Seed from the last published bootstrap
+        if: steps.cache.outputs.cache-matched-key == ''
+        run: |
+          mkdir -p node
+          if gh release download "$BOOTSTRAP_TAG" -R "$GITHUB_REPOSITORY" -p 'OduwaCoin-DB.zip' -D seed 2>/dev/null \
+             || gh release download -R "$GITHUB_REPOSITORY" -p 'OduwaCoin-DB.zip' -D seed 2>/dev/null; then
+            python3 -c "import zipfile; zipfile.ZipFile('seed/OduwaCoin-DB.zip').extractall('node')"
+            rm -rf seed
+            echo "Seeded from the previous bootstrap."
+          else
+            echo "No previous bootstrap; syncing from block 0."
+          fi
+
+      - name: Sync to the network tip
+        id: sync
+        # Leaves time to stop the node and save progress for the next run.
+        timeout-minutes: 290
+        run: |
+          D="$PWD/node"
+          mkdir -p "$D"
+          rm -f "$D/blocks/index/LOCK" "$D/chainstate/LOCK"
+          { echo disablewallet=1; echo dbcache=2048
+            for ip in $PEERS; do echo "addnode=$ip:26681"; done; } > "$D/OduwaCoin.conf"
+          bin/oduwacoind -datadir="$D" -daemon
+          C="bin/oduwacoin-cli -datadir=$D"
+          last=-1; stall=0
+          while :; do
+            sleep 60
+            h=$($C getblockcount 2>/dev/null) || continue
+            hd=$($C getblockchaininfo | python3 -c 'import json,sys;print(json.load(sys.stdin)["headers"])')
+            t=$($C getblock "$($C getbestblockhash)" | python3 -c 'import json,sys;print(json.load(sys.stdin)["time"])')
+            lag=$(( $(date +%s) - t ))
+            echo "$(date -u +%H:%M) height=$h headers=$hd peers=$($C getconnectioncount) behind=$((lag/60))min"
+            if [ "$lag" -lt 1200 ] && [ "$h" -ge "$hd" ]; then break; fi
+            if [ "$h" = "$last" ]; then stall=$((stall+1)); else stall=0; fi
+            if [ "$stall" -ge 45 ]; then echo "::error::No sync progress for 45 minutes"; tail -50 "$D/debug.log"; exit 1; fi
+            last=$h
+          done
+          $C getblockcount > height.txt
+          $C getbestblockhash > besthash.txt
+          $C stop
+          while pgrep -x oduwacoind >/dev/null; do sleep 2; done
+          grep -q "Shutdown: done" "$D/debug.log"
+
+      - name: Stop the node if the sync did not finish
+        if: always() && steps.sync.outcome != 'success'
+        run: |
+          bin/oduwacoin-cli -datadir="$PWD/node" stop 2>/dev/null || true
+          for i in $(seq 1 120); do pgrep -x oduwacoind >/dev/null || break; sleep 2; done
+
+      - name: Save node data for the next run
+        if: always() && hashFiles('node/blocks/index/CURRENT') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: node
+          key: bootstrap-node-${{ github.run_id }}
+
+      - name: Remove older saved node data
+        if: always() && hashFiles('height.txt') != ''
+        run: |
+          gh cache list -R "$GITHUB_REPOSITORY" --key bootstrap-node- --limit 50 --json key -q '.[].key' |
+            grep -vx "bootstrap-node-$GITHUB_RUN_ID" | while read -r k; do gh cache delete "$k" -R "$GITHUB_REPOSITORY"; done || true
+
+      - name: Package
+        working-directory: node
+        run: |
+          python3 - <<'PY'
+          import os, zipfile
+          with zipfile.ZipFile("../OduwaCoin-DB.zip", "w", zipfile.ZIP_DEFLATED, compresslevel=6) as z:
+              for top in ("blocks", "chainstate"):
+                  for root, dirs, files in os.walk(top):
+                      dirs.sort()
+                      z.write(root)
+                      for f in sorted(files):
+                          if f != "LOCK":
+                              z.write(os.path.join(root, f))
+          PY
+          ls -la ../OduwaCoin-DB.zip
+
+      - name: Verify the bootstrap loads offline
+        run: |
+          rm -rf check && mkdir check
+          python3 -c "import zipfile; zipfile.ZipFile('OduwaCoin-DB.zip').extractall('check')"
+          bin/oduwacoind -datadir="$PWD/check" -daemon -connect=0 -listen=0 -disablewallet
+          C="bin/oduwacoin-cli -datadir=$PWD/check"
+          until $C getblockcount >/dev/null 2>&1; do
+            pgrep -x oduwacoind >/dev/null || { tail -30 check/debug.log; exit 1; }
+            sleep 5
+          done
+          test "$($C getblockcount)" = "$(cat height.txt)"
+          test "$($C getbestblockhash)" = "$(cat besthash.txt)"
+          test "$($C verifychain 4 1000)" = "true"
+          $C stop
+          while pgrep -x oduwacoind >/dev/null; do sleep 2; done
+          rm -rf check
+
+      - name: Publish
+        run: |
+          sha256sum OduwaCoin-DB.zip > OduwaCoin-DB.zip.sha256
+          H=$(cat height.txt); S=$(cut -d' ' -f1 OduwaCoin-DB.zip.sha256); NOW=$(date -u '+%Y-%m-%d %H:%M UTC')
+          U="https://github.com/$GITHUB_REPOSITORY/releases/download/$BOOTSTRAP_TAG"
+          cat > notes.md <<EOF
+          Verified blockchain snapshot for OduwaCoin Core, rebuilt automatically twice a week.
+
+          | | |
+          |---|---|
+          | Block height | $H |
+          | Best block | \`$(cat besthash.txt)\` |
+          | Built | $NOW |
+          | Built with | $(cat daemon-version.txt) |
+          | SHA-256 | \`$S\` |
+
+          **Download:** $U/OduwaCoin-DB.zip
+          **Checksum file:** $U/OduwaCoin-DB.zip.sha256
+
+          Every snapshot is made from a cleanly stopped node, then unzipped and started offline
+          to confirm it loads at the same block and passes \`verifychain\` before it is published.
+
+          **To use it:** close OduwaCoin Core completely and back up \`wallet.dat\`. Delete the
+          \`blocks\` and \`chainstate\` folders in your data directory, unzip \`OduwaCoin-DB.zip\`
+          there, then start OduwaCoin Core.
+          EOF
+          if gh release view "$BOOTSTRAP_TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$BOOTSTRAP_TAG" -R "$GITHUB_REPOSITORY" --clobber OduwaCoin-DB.zip OduwaCoin-DB.zip.sha256
+            gh release edit "$BOOTSTRAP_TAG" -R "$GITHUB_REPOSITORY" --notes-file notes.md
+          else
+            gh release create "$BOOTSTRAP_TAG" -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+              --title "Blockchain bootstrap (auto-updated)" --prerelease --latest=false \
+              --notes-file notes.md OduwaCoin-DB.zip OduwaCoin-DB.zip.sha256
+          fi
+          { echo "Height: $H"; echo "SHA-256: $S"; } >> "$GITHUB_STEP_SUMMARY"
