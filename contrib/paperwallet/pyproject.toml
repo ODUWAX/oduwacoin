@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "owc-paper"
+version = "1.0.0"
+description = "OduwaCoin paper wallet and gift voucher generator, funder and redeemer"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+dependencies = ["qrcode>=7.4", "reportlab>=3.6", "pillow>=9"]
+
+[project.scripts]
+owc-paper = "owc_paper.cli:main"
+
+[tool.setuptools]
+packages = ["owc_paper"]
+
+[tool.setuptools.package-data]
+owc_paper = ["owc_logo.png"]
