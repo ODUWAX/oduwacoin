@@ -108,7 +108,7 @@ def cmd_generate(args):
                                    created[:19].replace(":", ""))
     pdf_path = os.path.join(args.out, stem + ".pdf")
     explorer = Explorer(args.explorer)
-    render(records, pdf_path, args.kind, explorer, issuer=args.issuer)
+    render(records, pdf_path, args.kind, explorer, issuer=args.issuer, claim_url=args.claim_url or None)
     os.chmod(pdf_path, 0o600)
 
     manifest = {
@@ -343,6 +343,8 @@ def main(argv=None):
     g.add_argument("--from", dest="sender", help="giver name (vouchers)")
     g.add_argument("--message", help="gift message (vouchers)")
     g.add_argument("--issuer", default="OduwaCoin", help="brand line on the voucher")
+    g.add_argument("--claim-url", default="https://oduwacoin.io/gift?a={address}",
+                   help="URL for the voucher's front QR; {address} is replaced. Use '' to link the explorer instead")
     g.add_argument("--serial-prefix")
     g.add_argument("--out", default="owc-paper-out")
     g.add_argument("--name", help="output file stem")

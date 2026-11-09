@@ -207,7 +207,7 @@ def _ornament_border(c, x, y, w, h):
         c.circle(ax, ay, 1.4 * mm, fill=1, stroke=0)
 
 
-def draw_voucher(c, rec, explorer, issuer):
+def draw_voucher(c, rec, explorer, issuer, claim_url=None):
     """Tri-fold A4 voucher: three 210 x 99 mm panels (folds to DL envelope size).
 
     Panel 1 (top)    – the gift certificate front, stays visible.
@@ -241,7 +241,8 @@ def draw_voucher(c, rec, explorer, issuer):
 
     qs = 25 * mm
     qx, qy = x0 + W - qs - 9 * mm, y0 + H - qs - 9 * mm
-    c.drawImage(_qr(explorer.address_url(addr)), qx, qy, qs, qs)
+    check_url = claim_url.format(address=addr) if claim_url else explorer.address_url(addr)
+    c.drawImage(_qr(check_url), qx, qy, qs, qs)
     c.setFont("Helvetica", 6)
     c.setFillColor(MUTED)
     c.drawCentredString(qx + qs / 2, qy - 3 * mm, "Scan to check balance")
@@ -359,14 +360,17 @@ def draw_voucher(c, rec, explorer, issuer):
     _fold_line(c, ph, "fold 1 – fold the key panel up first so the key faces inward")
 
 
-def render(records, path, kind, explorer, issuer=None, title=None):
+DEFAULT_CLAIM_URL = "https://oduwacoin.io/gift?a={address}"
+
+
+def render(records, path, kind, explorer, issuer=None, title=None, claim_url=DEFAULT_CLAIM_URL):
     c = canvas.Canvas(path, pagesize=A4)
     c.setTitle(title or ("OduwaCoin %s" % ("Gift Vouchers" if kind == "voucher" else "Paper Wallets")))
     c.setAuthor(issuer or "OduwaCoin")
     c.setSubject("Contains private keys – print offline, then delete this file")
     for rec in records:
         if kind == "voucher":
-            draw_voucher(c, rec, explorer, issuer)
+            draw_voucher(c, rec, explorer, issuer, claim_url)
         else:
             draw_paper_wallet(c, rec, explorer)
         c.showPage()

@@ -78,6 +78,11 @@ instructions. Bottom panel: private key. Fold the key panel up first (key faces 
 fold the certificate down over the outside, and seal the edges with tape or a
 tamper-evident sticker.
 
+The balance-check QR opens `https://oduwacoin.io/gift?a=<address>`, where the recipient
+sees the balance, whether it has been claimed, and how to claim it. Change it with
+`--claim-url 'https://example.org/check?addr={address}'`, or pass `--claim-url ''` to link
+the block explorer instead.
+
 **Paper wallet layout:** a cut-out card with the public address QR (load/verify) on the
 left and the private key QR (spend) on the right, with usage instructions below.
 
