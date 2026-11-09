@@ -43,7 +43,7 @@ class KeyTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             keys.wif_to_secret("5HueCGU8rMjxEXxiPuD5BDku4MkFqeZyd4dZ1jvhTVqvbTLvyTJ")  # bitcoin WIF
         self.assertFalse(keys.is_valid_address("1BoatSLRHtKNngkdXEeobR76b53LETtpyT"))
-        self.assertFalse(keys.is_valid_address(addr[:-1] + "1"))
+        self.assertFalse(keys.is_valid_address(addr[:-1] + ("1" if addr[-1] != "1" else "2")))
 
     def test_ripemd_fallback(self):
         try:
